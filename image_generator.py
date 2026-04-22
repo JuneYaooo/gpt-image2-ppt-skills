@@ -35,6 +35,42 @@ ASPECT_TO_SIZE = {
 REQUEST_TIMEOUT_SECS = 600  # 图片生成可能需要 1-3 分钟
 MAX_RETRIES = 3  # 524/超时/连接断开等瞬态错误的重试次数
 RETRY_DELAY_SECS = 5
+MAX_ASPECT_RETRIES = 2  # 比例不合格自动重生次数
+ASPECT_TOLERANCE = 0.15  # 比例偏差容忍度（±15%）
+
+# 期望的宽高比（width / height）
+ASPECT_RATIO_VALUES = {
+    "16:9": 16 / 9,
+    "9:16": 9 / 16,
+    "1:1": 1.0,
+}
+
+
+def read_png_dimensions(path: str) -> tuple:
+    """从 PNG header 读宽高，不依赖 PIL。失败返回 (0, 0)。"""
+    import struct
+    try:
+        with open(path, "rb") as f:
+            head = f.read(24)
+        if head[:8] != b"\x89PNG\r\n\x1a\n":
+            return 0, 0
+        # IHDR chunk: 16 字节偏移开始 width(4) + height(4) big-endian
+        width, height = struct.unpack(">II", head[16:24])
+        return width, height
+    except Exception:
+        return 0, 0
+
+
+def aspect_acceptable(width: int, height: int, target: str, tolerance: float = ASPECT_TOLERANCE) -> bool:
+    """检查实际宽高比是否在目标比例的容差范围内。"""
+    if not (width and height):
+        return True  # 读不到就放过，不阻塞流程
+    expected = ASPECT_RATIO_VALUES.get(target)
+    if expected is None:
+        return True
+    actual = width / height
+    deviation = abs(actual - expected) / expected
+    return deviation <= tolerance
 
 
 class GptImage2Generator:
@@ -146,14 +182,21 @@ class GptImage2Generator:
         # 用比例描述而不是具体像素 —— gpt-image 类模型更听自然语言 "宽屏 16:9"，
         # 写具体像素值反而被忽略。
         if self.aspect_ratio == "9:16":
-            aspect_hint = "\n\n【画面比例】请严格按 9:16 竖版手机屏幕比例生成，绝对不要方图。"
+            aspect_hint = (
+                "\n\n【画面比例 — 强制】严格按 9:16 竖版手机屏幕生成 "
+                "(portrait, vertical 9:16, height much taller than width). "
+                "绝对不要方图。"
+            )
         elif self.aspect_ratio == "1:1":
-            aspect_hint = "\n\n【画面比例】请按 1:1 方形比例生成。"
+            aspect_hint = "\n\n【画面比例 — 强制】1:1 方图。"
         else:
             aspect_hint = (
-                "\n\n【画面比例】严格按 16:9 横版宽屏比例生成（PPT 演示文稿格式），"
-                "宽度明显大于高度，绝对不要生成方图或近方图。"
-                "Strictly 16:9 widescreen landscape, NEVER square."
+                "\n\n【画面比例 — 强制要求】生成图片必须是 16:9 横版宽屏 "
+                "(landscape orientation, widescreen 16:9 aspect ratio, "
+                "ultrawide horizontal banner format). "
+                "宽度必须明显大于高度，宽高比约 1.78:1。"
+                "绝对不要生成方图(square)、近方图(near-square)或竖图(portrait)。"
+                "Output MUST be 16:9 landscape widescreen, NEVER square or portrait."
             )
 
         payload = {
@@ -271,36 +314,62 @@ class GptImage2Generator:
         print(f"📝 prompt[:100]: {prompt[:100].replace(chr(10), ' ')}{'...' if len(prompt) > 100 else ''}")
 
         import time as _time
-        last_err = None
-        for attempt in range(1, MAX_RETRIES + 1):
-            try:
-                if self.endpoint == "images":
-                    payload = self._request_via_images(prompt, target_size)
-                elif self.endpoint == "chat":
-                    payload = self._request_via_chat(prompt, target_size)
-                else:  # auto
-                    try:
+
+        # 外层：比例不合格重生（最多 MAX_ASPECT_RETRIES 次）
+        for ratio_attempt in range(MAX_ASPECT_RETRIES + 1):
+            last_err = None
+            # 内层：瞬态错误重试（524 / 超时等）
+            for attempt in range(1, MAX_RETRIES + 1):
+                try:
+                    if self.endpoint == "images":
                         payload = self._request_via_images(prompt, target_size)
-                    except Exception as e:
-                        print(f"⚠️ images 失败，回退到 chat: {str(e)[:120]}")
+                    elif self.endpoint == "chat":
                         payload = self._request_via_chat(prompt, target_size)
+                    else:  # auto
+                        try:
+                            payload = self._request_via_images(prompt, target_size)
+                        except Exception as e:
+                            print(f"⚠️ images 失败，回退到 chat: {str(e)[:120]}")
+                            payload = self._request_via_chat(prompt, target_size)
 
-                self._save_payload(payload, output_path)
-                print(f"✅ 已保存: {output_path}")
+                    self._save_payload(payload, output_path)
+                    break  # 成功落盘，跳出瞬态重试循环
+                except Exception as e:
+                    last_err = e
+                    msg = str(e)[:200]
+                    transient = any(s in msg for s in ("524", "502", "503", "504", "timeout", "Read timed out",
+                                                        "Connection aborted", "RemoteDisconnected"))
+                    if attempt < MAX_RETRIES and transient:
+                        print(f"⚠️ [scene {scene_index}] 第 {attempt} 次失败({msg})，{RETRY_DELAY_SECS}s 后重试")
+                        _time.sleep(RETRY_DELAY_SECS)
+                        continue
+                    raise
+            else:
+                raise RuntimeError(f"重试 {MAX_RETRIES} 次仍失败: {last_err}")
+
+            # 比例校验
+            w, h = read_png_dimensions(output_path)
+            if aspect_acceptable(w, h, self.aspect_ratio):
+                print(f"✅ 已保存: {output_path}  ({w}×{h}, 比例 {w/h:.3f}, 目标 {self.aspect_ratio})")
                 return output_path
-            except Exception as e:
-                last_err = e
-                msg = str(e)[:200]
-                # 只重试瞬态错误：524/502/503/504/超时/连接断开
-                transient = any(s in msg for s in ("524", "502", "503", "504", "timeout", "Read timed out",
-                                                    "Connection aborted", "RemoteDisconnected"))
-                if attempt < MAX_RETRIES and transient:
-                    print(f"⚠️ [scene {scene_index}] 第 {attempt} 次失败({msg})，{RETRY_DELAY_SECS}s 后重试")
-                    _time.sleep(RETRY_DELAY_SECS)
-                    continue
-                raise
 
-        raise RuntimeError(f"重试 {MAX_RETRIES} 次仍失败: {last_err}")
+            # 比例偏离
+            actual_ratio = w / h if h else 0
+            expected = ASPECT_RATIO_VALUES.get(self.aspect_ratio, 16/9)
+            dev_pct = abs(actual_ratio - expected) / expected * 100 if expected else 0
+            if ratio_attempt < MAX_ASPECT_RETRIES:
+                print(f"📐 [scene {scene_index}] 尺寸 {w}×{h} (比例 {actual_ratio:.3f}) "
+                      f"偏离目标 {self.aspect_ratio} {dev_pct:.0f}%，重生 ({ratio_attempt+1}/{MAX_ASPECT_RETRIES})")
+                try:
+                    os.remove(output_path)
+                except OSError:
+                    pass
+                continue
+            else:
+                print(f"⚠️ [scene {scene_index}] 尺寸 {w}×{h} 仍偏离 {dev_pct:.0f}%，已达比例重试上限，保留")
+                return output_path
+
+        return output_path
 
 
 if __name__ == "__main__":
