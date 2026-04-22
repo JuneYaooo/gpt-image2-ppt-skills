@@ -61,7 +61,8 @@ def find_and_load_env() -> bool:
             print(f"Loaded environment from: {env_path}")
             return True
 
-    load_dotenv(override=True)
+    # 故意不再 load_dotenv() 兜底——避免 dotenv 的隐式 cwd/父目录搜索
+    # 误吃无关项目的 .env。如果 scoped 位置都没 .env，就只用进程 env vars。
     print("Warning: No .env file found in scoped locations; using process env vars only.")
     return False
 

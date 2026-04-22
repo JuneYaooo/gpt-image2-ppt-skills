@@ -19,10 +19,10 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import requests
-from dotenv import load_dotenv
 
-
-load_dotenv()
+# .env 加载由顶层入口（generate_ppt.py 的 find_and_load_env）统一负责。
+# 本模块不调 load_dotenv()，避免 import 时无意识加载父目录 / cwd 的 .env，
+# 与 SKILL.md 声明的"scoped .env loading"保持一致。
 
 
 # 16:9 横版用 1536x1024，竖版 9:16 用 1024x1536，方图用 1024x1024
