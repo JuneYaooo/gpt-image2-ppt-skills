@@ -423,7 +423,19 @@ def main() -> None:
             match_layout,
             coerce_fields,
             render_prompt_from_template,
+            check_layout_reuse,
         )
+        # layout 复用检测：在派发任务前打出建议，让用户决定是否中断
+        reuse_warnings = check_layout_reuse(slides, template_profile)
+        if reuse_warnings:
+            print()
+            print("=" * 60)
+            print("📐 Layout 复用检测（建议尽量做到 1 page : 1 layout）")
+            print("=" * 60)
+            for w in reuse_warnings:
+                print(w)
+            print("=" * 60)
+            print()
 
     # 收集所有待跑任务（跳过已存在的）
     pending_tasks = []

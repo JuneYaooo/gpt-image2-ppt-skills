@@ -132,6 +132,25 @@ VISION_MODEL_NAME=gemini-3.1-pro-preview
    先 `--slides 1` 出封面冒烟，效果 OK 再跑全量
 5. **告知用户产物路径**
 
+### 模板页面挑选 / 复用原则
+
+**核心原则：尽量做到 1 page : 1 layout**——同一份 deck 里每个 slide 用不同的模板页作 reference，观众会觉得每页都是新内容；如果同一个独特 layout 出现 2-3 次，观众下意识会想"为什么又是这页"。
+
+vision 分析时会给每个 layout 标 `reuse_friendly`：
+
+| reuse_friendly | 典型 layout | 多次使用的代价 |
+| --- | --- | --- |
+| `false`（不可复用，⚠️ 强警告） | 封面、3 个具名角色插画页、独特场景图（雪山/广播塔/复古收音机）、5 步骤 zigzag 各步独有图标、novelty 数据中央装置 | 视觉重复非常明显，观众会困惑 |
+| `true`（可复用，但仍建议错开，ℹ️ 弱提示） | 纯文字、卡片网格、通用列表、章节小节标题 | 不致命，但平白浪费模板里的其它好版式 |
+
+Claude 在搭 plan 时的执行策略：
+1. **优先把模板里 N 个不同 layout 分配给 N 页 slide**（N 不够就在 SKILL 里看 reuse_friendly=true 的部分挑能复用的）
+2. **如果 plan 里某页内容结构非常相似（比如多个"5 步骤流程"），先尝试改写内容用不同 layout 表达**（4 步骤 + 5 步骤分别用不同流程页），而不是同一个 zigzag 用两次
+3. **冒烟跑完后，看 `Layout 复用检测` 那段输出**：⚠️ 必须改，ℹ️ 看情况改；改 plan 里相应 slide 的 `layout_id` 即可
+4. **看完 cache JSON 选 layout**：`cat <cwd>/template_cache/<sha256>.json | jq '.layouts[] | {id, page_type, reuse_friendly, summary}'` 一眼看清模板有哪些版式可挑
+
+`generate_ppt.py` 在派发任务前会自动跑一次复用检测，把警告打到终端，不阻塞执行。
+
 ## Skill 调用规范
 
 当用户说"做一份 PPT" / "生成幻灯片"时：

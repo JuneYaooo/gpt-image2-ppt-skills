@@ -294,6 +294,8 @@ GLOBAL_USER_TPL = """请基于下方 {n_images} 张 PPT 页的缩略图（按从
       "page_index": 0,
       "page_type": "cover|agenda|section|content|data|quote|closing|other",
       "summary": "用 60-120 字描述这页的视觉布局和内容编排方式，重点描写位置、装饰、文字层级，不要描述具体的文字内容",
+      "reuse_friendly": true,
+      "reuse_reason": "用 30-60 字解释为什么这页适合 / 不适合在同一份 deck 里被多次复用",
       "json_schema": {{
         "type": "object",
         "properties": {{
@@ -315,6 +317,18 @@ GLOBAL_USER_TPL = """请基于下方 {n_images} 张 PPT 页的缩略图（按从
   封面要有 title/subtitle；目录页要有 items；数据页要有 metrics 或 stats。
 - 颜色用 #RRGGBB；不确定就给最接近的近似值。
 - 严格只返回 JSON 一个对象，无其他文本。
+
+【reuse_friendly 判定规则】
+- true（可重复使用）：版式通用、装饰元素与具体语义无强绑定。典型例子：
+  · 纯文字 / 多卡片网格 / 多条目列表 / 通用数据对比 / 章节小节标题
+  · 装饰只是几何形状 / 抽象色块 / 通用图标
+- false（不建议重复）：版式带强语义锚点，复用会让观众觉得"为什么又是这页"。典型例子：
+  · 封面页（cover）— 整份 deck 只能有 1 个
+  · 含独特角色插画的页（如 3 个具名人物 + 不同职业）
+  · 含独特场景插画的页（如雪山、广播塔、复古收音机等显眼意象）
+  · 多步骤流程页 + 每步独有图标（如 5 步骤 zigzag with 不同 icon），复用会暗示"同一个流程"
+  · novelty 数据可视化页（独特中央装置图）
+- reuse_reason 用一句话讲明白判定依据，方便用户决策。
 """
 
 
@@ -350,6 +364,8 @@ def vision_analyze(images: List[str], client: VisionClient, pptx_meta: Dict[str,
                 "page_index": i,
                 "page_type": "content",
                 "summary": "（vision 未返回此页 layout，直接用模板图作为参考）",
+                "reuse_friendly": True,
+                "reuse_reason": "（vision 未分析，默认按可复用处理）",
                 "json_schema": {
                     "type": "object",
                     "properties": {
@@ -370,6 +386,13 @@ def vision_analyze(images: List[str], client: VisionClient, pptx_meta: Dict[str,
         if pt not in VALID_PAGE_TYPES:
             layout["page_type"] = "content"
         layout.setdefault("id", f"layout-{i + 1:02d}")
+        # 复用友好性：cover 永远视为不可复用；其他默认 True（vision 没返回时不打扰用户）
+        if layout.get("page_type") == "cover":
+            layout["reuse_friendly"] = False
+            layout.setdefault("reuse_reason", "封面页一份 deck 只能有 1 个")
+        else:
+            layout.setdefault("reuse_friendly", True)
+            layout.setdefault("reuse_reason", "")
     return result
 
 
@@ -475,6 +498,76 @@ def match_layout(slide: Dict[str, Any], profile: Dict[str, Any]) -> Optional[Dic
     n = slide.get("slide_number", 1)
     idx = max(0, min(n - 1, len(layouts) - 1))
     return layouts[idx]
+
+
+def check_layout_reuse(slides: List[Dict[str, Any]], profile: Dict[str, Any]) -> List[str]:
+    """检测 plan 里同一 layout 被多次使用的情况，并指出未被使用的"备胎"。
+
+    返回一个警告列表（已格式化的字符串），便于上层直接 print。
+    判定路径：先用 match_layout 拿到每个 slide 实际命中的 layout，再按
+    layout.id 聚合。
+    - 重复 + reuse_friendly == False：⚠️ 强警告，建议必须换；
+    - 重复 + reuse_friendly == True：ℹ️ 弱提示，建议优先用没用过的 layout；
+    - 同时附带还未被使用的候选 layout（按 page_type 归组），方便决策。
+    """
+    warnings: List[str] = []
+    layouts = profile.get("layouts", [])
+    if not layouts:
+        return warnings
+
+    # 收集每个 layout_id 被哪些 slide 用了
+    usage: Dict[str, List[int]] = {}
+    layout_meta: Dict[str, Dict[str, Any]] = {}
+    for slide in slides:
+        lay = match_layout(slide, profile)
+        if not lay:
+            continue
+        lid = lay.get("id", "?")
+        usage.setdefault(lid, []).append(slide.get("slide_number", 0))
+        layout_meta[lid] = lay
+
+    used_ids = set(usage.keys())
+    unused = [lay for lay in layouts if lay.get("id") not in used_ids]
+
+    for lid, slide_nums in usage.items():
+        if len(slide_nums) < 2:
+            continue
+        lay = layout_meta[lid]
+        friendly = lay.get("reuse_friendly", True)
+        page_type = lay.get("page_type", "?")
+        reason = lay.get("reuse_reason") or "建议尽量做到一页一种 layout"
+        # 找同 page_type 还没用的 layout 做候选
+        candidates = [u.get("id") for u in unused if u.get("page_type") == page_type][:3]
+        candidate_hint = (
+            f"\n    备胎 layout（同 page_type={page_type}，可考虑切到这些）：{', '.join(candidates)}"
+            if candidates else ""
+        )
+        if friendly:
+            warnings.append(
+                f"ℹ️  layout {lid}（{page_type}）被 slide {slide_nums} 重复 {len(slide_nums)} 次使用，"
+                f"虽标 reuse_friendly=True，仍建议换不同 layout 避免视觉重复。{candidate_hint}"
+            )
+        else:
+            warnings.append(
+                f"⚠️  layout {lid}（{page_type}）被 slide {slide_nums} 重复 {len(slide_nums)} 次使用，"
+                f"且标 reuse_friendly=False。原因：{reason}\n"
+                f"    强烈建议换 layout。{candidate_hint}"
+            )
+    return warnings
+
+
+def summarize_layouts(profile: Dict[str, Any]) -> str:
+    """把 profile 里的所有 layout 整理成一段表格状文本，方便人/Claude 选页。"""
+    layouts = profile.get("layouts", [])
+    if not layouts:
+        return "（profile 没有 layout）"
+    lines = ["id  | page_type | reuse | summary"]
+    lines.append("--- | --- | --- | ---")
+    for lay in layouts:
+        flag = "✓" if lay.get("reuse_friendly", True) else "✗"
+        summary = (lay.get("summary", "") or "").replace("\n", " ")[:60]
+        lines.append(f"{lay.get('id','?')} | {lay.get('page_type','?')} | {flag} | {summary}")
+    return "\n".join(lines)
 
 
 def coerce_fields(slide: Dict[str, Any], layout: Dict[str, Any]) -> Dict[str, Any]:
