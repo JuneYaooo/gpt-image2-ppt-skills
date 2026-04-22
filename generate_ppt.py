@@ -9,6 +9,7 @@ then creates an HTML viewer for playback.
 import argparse
 import json
 import os
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -25,6 +26,7 @@ DEFAULT_TEMPLATE_PATH = "templates/viewer.html"
 OUTPUT_BASE_DIR = "outputs"
 
 SCRIPT_DIR = Path(__file__).parent
+CWD = Path.cwd()
 
 
 # =============================================================================
@@ -215,6 +217,52 @@ def save_prompts(output_dir: str, prompts_data: Dict[str, Any]) -> str:
     return prompts_path
 
 
+def generate_pptx(
+    output_dir: str,
+    slide_count: int,
+    title: str = "Untitled",
+) -> Optional[str]:
+    """把 images/slide-XX.png 打包成 16:9 .pptx，每页填满。
+
+    需要 python-pptx；如果没装就跳过并提示。
+    """
+    try:
+        from pptx import Presentation
+        from pptx.util import Inches, Emu
+    except ImportError:
+        print("⚠️  跳过 .pptx 生成（缺 python-pptx，pip install python-pptx 后重试）")
+        return None
+
+    prs = Presentation()
+    # 标准 16:9 PPT 尺寸：13.333 x 7.5 英寸（1280x720pt）
+    prs.slide_width = Inches(13.333)
+    prs.slide_height = Inches(7.5)
+    blank = prs.slide_layouts[6]  # 完全空白布局
+
+    img_dir = os.path.join(output_dir, "images")
+    added = 0
+    for i in range(1, slide_count + 1):
+        img_path = os.path.join(img_dir, f"slide-{i:02d}.png")
+        if not os.path.exists(img_path):
+            print(f"  跳过 slide-{i:02d}.png（文件不存在）")
+            continue
+        slide = prs.slides.add_slide(blank)
+        # 图片填满整页（如果原图比例不是 16:9，python-pptx 默认按指定 width/height 拉伸）
+        slide.shapes.add_picture(img_path, 0, 0, width=prs.slide_width, height=prs.slide_height)
+        added += 1
+
+    if added == 0:
+        print("⚠️  没有可用图片，未生成 .pptx")
+        return None
+
+    # 文件名用 plan title（去除非法字符）
+    safe_title = re.sub(r"[^\w\u4e00-\u9fff\-]+", "_", title)[:60] or "deck"
+    pptx_path = os.path.join(output_dir, f"{safe_title}.pptx")
+    prs.save(pptx_path)
+    print(f"  📑 PPTX generated: {pptx_path}  ({added} slides)")
+    return pptx_path
+
+
 # =============================================================================
 # Main Entry Point
 # =============================================================================
@@ -254,6 +302,11 @@ Environment variables (set in .env file):
         default=int(os.getenv("GPT_IMAGE_CONCURRENCY", "10")),
         help="并发请求数（默认 10，可用 GPT_IMAGE_CONCURRENCY 环境变量覆盖）",
     )
+    parser.add_argument(
+        "--no-pptx",
+        action="store_true",
+        help="不生成 .pptx 文件（默认会自动打包成 16:9 PPTX）",
+    )
 
     return parser
 
@@ -279,7 +332,8 @@ def main() -> None:
         output_dir = args.output
     else:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_dir = str(SCRIPT_DIR / OUTPUT_BASE_DIR / timestamp)
+        # 默认输出到调用者当前工作目录，而不是 skill 安装目录
+        output_dir = str(CWD / OUTPUT_BASE_DIR / timestamp)
 
     os.makedirs(os.path.join(output_dir, "images"), exist_ok=True)
 
@@ -383,12 +437,22 @@ def main() -> None:
     save_prompts(output_dir, prompts_data)
     generate_viewer_html(output_dir, total_slides, args.template)
 
+    pptx_path = None
+    if not args.no_pptx:
+        pptx_path = generate_pptx(
+            output_dir,
+            total_slides,
+            title=slides_plan.get("title", "Untitled"),
+        )
+
     print()
     print("=" * 60)
     print("Generation Complete!")
     print("=" * 60)
     print(f"Output directory: {output_dir}")
     print(f"Viewer HTML: {os.path.join(output_dir, 'index.html')}")
+    if pptx_path:
+        print(f"PPTX file:   {pptx_path}")
     print()
     print("Open viewer in browser:")
     print(f"  open {os.path.join(output_dir, 'index.html')}")
