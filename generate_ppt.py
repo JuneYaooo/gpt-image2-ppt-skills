@@ -248,6 +248,12 @@ Environment variables (set in .env file):
         "--slides",
         help="Only generate specific slides, e.g. '1,3,5'",
     )
+    parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=int(os.getenv("GPT_IMAGE_CONCURRENCY", "10")),
+        help="并发请求数（默认 10，可用 GPT_IMAGE_CONCURRENCY 环境变量覆盖）",
+    )
 
     return parser
 
@@ -290,6 +296,7 @@ def main() -> None:
     print(f"Style: {style_path}")
     print(f"Slides: {len(slides)} / {total_slides}")
     print(f"Output: {output_dir}")
+    print(f"Concurrency: {args.concurrency}")
     print("=" * 60)
     print()
 
@@ -304,6 +311,8 @@ def main() -> None:
         "slides": [],
     }
 
+    # 收集所有待跑任务（跳过已存在的）
+    pending_tasks = []
     for slide_info in slides:
         slide_number = slide_info["slide_number"]
         page_type = slide_info.get("page_type", "content")
@@ -324,19 +333,52 @@ def main() -> None:
         prompt = generate_prompt(
             style_template, page_type, content_text, slide_number, total_slides
         )
-
-        print(f"Generating slide {slide_number} ({page_type})...")
-        image_path = generate_slide(prompt, slide_number, output_dir)
-
-        prompts_data["slides"].append({
+        pending_tasks.append({
             "slide_number": slide_number,
             "page_type": page_type,
             "content": content_text,
             "prompt": prompt,
-            "image_path": image_path,
         })
 
-        print()
+    if pending_tasks:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        worker_count = max(1, min(args.concurrency, len(pending_tasks)))
+        print(f"📦 派发 {len(pending_tasks)} 个任务到 {worker_count} 个并发 worker...\n")
+
+        results: Dict[int, Optional[str]] = {}
+
+        def _run(task):
+            n = task["slide_number"]
+            print(f"▶️  [slide {n}] start ({task['page_type']})")
+            try:
+                path = generate_slide(task["prompt"], n, output_dir)
+                print(f"✅ [slide {n}] done")
+                return n, path
+            except Exception as e:
+                print(f"❌ [slide {n}] failed: {e}")
+                return n, None
+
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            futures = [executor.submit(_run, t) for t in pending_tasks]
+            for fut in as_completed(futures):
+                n, path = fut.result()
+                results[n] = path
+
+        # 按原顺序写回 prompts_data
+        for task in pending_tasks:
+            n = task["slide_number"]
+            prompts_data["slides"].append({
+                "slide_number": n,
+                "page_type": task["page_type"],
+                "content": task["content"],
+                "prompt": task["prompt"],
+                "image_path": results.get(n),
+            })
+
+    # 按 slide_number 排序，保证 prompts.json 与播放顺序一致
+    prompts_data["slides"].sort(key=lambda s: s["slide_number"])
+    print()
 
     save_prompts(output_dir, prompts_data)
     generate_viewer_html(output_dir, total_slides, args.template)

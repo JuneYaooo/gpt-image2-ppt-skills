@@ -33,6 +33,8 @@ ASPECT_TO_SIZE = {
 }
 
 REQUEST_TIMEOUT_SECS = 600  # 图片生成可能需要 1-3 分钟
+MAX_RETRIES = 3  # 524/超时/连接断开等瞬态错误的重试次数
+RETRY_DELAY_SECS = 5
 
 
 class GptImage2Generator:
@@ -268,21 +270,37 @@ class GptImage2Generator:
         target_size = self.default_size if size == "auto" else size
         print(f"📝 prompt[:100]: {prompt[:100].replace(chr(10), ' ')}{'...' if len(prompt) > 100 else ''}")
 
-        # 按 endpoint 配置选择请求方式
-        if self.endpoint == "images":
-            payload = self._request_via_images(prompt, target_size)
-        elif self.endpoint == "chat":
-            payload = self._request_via_chat(prompt, target_size)
-        else:  # auto
+        import time as _time
+        last_err = None
+        for attempt in range(1, MAX_RETRIES + 1):
             try:
-                payload = self._request_via_images(prompt, target_size)
-            except Exception as e:
-                print(f"⚠️ images 失败，回退到 chat: {str(e)[:120]}")
-                payload = self._request_via_chat(prompt, target_size)
+                if self.endpoint == "images":
+                    payload = self._request_via_images(prompt, target_size)
+                elif self.endpoint == "chat":
+                    payload = self._request_via_chat(prompt, target_size)
+                else:  # auto
+                    try:
+                        payload = self._request_via_images(prompt, target_size)
+                    except Exception as e:
+                        print(f"⚠️ images 失败，回退到 chat: {str(e)[:120]}")
+                        payload = self._request_via_chat(prompt, target_size)
 
-        self._save_payload(payload, output_path)
-        print(f"✅ 已保存: {output_path}")
-        return output_path
+                self._save_payload(payload, output_path)
+                print(f"✅ 已保存: {output_path}")
+                return output_path
+            except Exception as e:
+                last_err = e
+                msg = str(e)[:200]
+                # 只重试瞬态错误：524/502/503/504/超时/连接断开
+                transient = any(s in msg for s in ("524", "502", "503", "504", "timeout", "Read timed out",
+                                                    "Connection aborted", "RemoteDisconnected"))
+                if attempt < MAX_RETRIES and transient:
+                    print(f"⚠️ [scene {scene_index}] 第 {attempt} 次失败({msg})，{RETRY_DELAY_SECS}s 后重试")
+                    _time.sleep(RETRY_DELAY_SECS)
+                    continue
+                raise
+
+        raise RuntimeError(f"重试 {MAX_RETRIES} 次仍失败: {last_err}")
 
 
 if __name__ == "__main__":
