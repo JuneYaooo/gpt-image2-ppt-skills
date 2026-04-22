@@ -356,7 +356,8 @@ def vision_analyze(images: List[str], client: VisionClient, pptx_meta: Dict[str,
 # =============================================================================
 
 def _cache_dir() -> Path:
-    return Path(__file__).parent / CACHE_DIR_NAME
+    """模板 vision 缓存放在调用者 cwd 下，不污染 skill 安装目录。"""
+    return Path.cwd() / CACHE_DIR_NAME
 
 
 def analyze_template(
@@ -364,6 +365,7 @@ def analyze_template(
     images_dir: Optional[str],
     rebuild: bool = False,
     client: Optional[VisionClient] = None,
+    cache_dir: Optional[Path] = None,
 ) -> Dict[str, Any]:
     """主入口：返回完整 TemplateProfile。
 
@@ -388,9 +390,9 @@ def analyze_template(
         }
 
     src_hash = compute_source_hash(pptx_path, images)
-    cache_dir = _cache_dir()
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    cache_path = cache_dir / f"{src_hash}.json"
+    cache_root = cache_dir if cache_dir else _cache_dir()
+    cache_root.mkdir(parents=True, exist_ok=True)
+    cache_path = cache_root / f"{src_hash}.json"
 
     if cache_path.exists() and not rebuild:
         print(f"📦 模板缓存命中 {cache_path}")
