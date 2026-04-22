@@ -1,6 +1,8 @@
 # gpt-image2-ppt-skills
 
-> 用 OpenAI 官方 `gpt-image-2` Images API 生成视觉风格强烈的 PPT 图片，自动产出可键盘翻页的 HTML viewer。Claude ​Code Skill。
+> 用 OpenAI 官方 `gpt-image-2` Images API 生成视觉风格强烈的 PPT 图片，自动产出可键盘翻页的 HTML viewer。Claude ​Code Skill / OpenClaw Skill。
+
+🌐 **English** ▶ [README.en.md](./README.en.md)
 
 ## ✨ 特性
 
