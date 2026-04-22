@@ -7,7 +7,7 @@ gpt-image-2 图片生成器
 （聚灵等中转站把图片模型挂在 chat completions 上，多模态返回）。
 
 如果 base_url 是 OpenAI 官方或支持 Images API 的中转站，
-也可以走 /v1/images/generations —— 由 GPT_IMAGE_ENDPOINT 切换。
+也可以走 /v1/images/generations ---- 由 GPT_IMAGE_ENDPOINT 切换。
 """
 
 from __future__ import annotations
@@ -116,7 +116,7 @@ class GptImage2Generator:
         resp.raise_for_status()
         ctype = resp.headers.get("content-type", "")
         if ctype and not ctype.startswith("image/"):
-            print(f"⚠️  非 image Content-Type: {ctype}（仍尝试写盘，请人工核对）")
+            print(f"(!)  非 image Content-Type: {ctype}（仍尝试写盘，请人工核对）")
         MAX_BYTES = 50 * 1024 * 1024
         written = 0
         with open(output_path, "wb") as f:
@@ -198,19 +198,19 @@ class GptImage2Generator:
         让 gpt-image-2 按它的视觉风格出新图（高保真 / 模板克隆模式）。
         """
         url = f"{self.base_url}/v1/chat/completions"
-        # 用比例描述而不是具体像素 —— gpt-image 类模型更听自然语言 "宽屏 16:9"，
+        # 用比例描述而不是具体像素 ---- gpt-image 类模型更听自然语言 "宽屏 16:9"，
         # 写具体像素值反而被忽略。
         if self.aspect_ratio == "9:16":
             aspect_hint = (
-                "\n\n【画面比例 — 强制】严格按 9:16 竖版手机屏幕生成 "
+                "\n\n【画面比例 -- 强制】严格按 9:16 竖版手机屏幕生成 "
                 "(portrait, vertical 9:16, height much taller than width). "
                 "绝对不要方图。"
             )
         elif self.aspect_ratio == "1:1":
-            aspect_hint = "\n\n【画面比例 — 强制】1:1 方图。"
+            aspect_hint = "\n\n【画面比例 -- 强制】1:1 方图。"
         else:
             aspect_hint = (
-                "\n\n【画面比例 — 强制要求】生成图片必须是 16:9 横版宽屏 "
+                "\n\n【画面比例 -- 强制要求】生成图片必须是 16:9 横版宽屏 "
                 "(landscape orientation, widescreen 16:9 aspect ratio, "
                 "ultrawide horizontal banner format). "
                 "宽度必须明显大于高度，宽高比约 1.78:1。"
@@ -372,7 +372,7 @@ class GptImage2Generator:
                             else:
                                 payload = self._request_via_images(prompt, target_size)
                         except Exception as e:
-                            print(f"⚠️ images 失败，回退到 chat: {str(e)[:120]}")
+                            print(f"(!) images 失败，回退到 chat: {str(e)[:120]}")
                             payload = self._request_via_chat(prompt, target_size, reference_image_path)
 
                     self._save_payload(payload, output_path)
@@ -383,7 +383,7 @@ class GptImage2Generator:
                     transient = any(s in msg for s in ("524", "502", "503", "504", "timeout", "Read timed out",
                                                         "Connection aborted", "RemoteDisconnected"))
                     if attempt < MAX_RETRIES and transient:
-                        print(f"⚠️ [scene {scene_index}] 第 {attempt} 次失败({msg})，{RETRY_DELAY_SECS}s 后重试")
+                        print(f"(!) [scene {scene_index}] 第 {attempt} 次失败({msg})，{RETRY_DELAY_SECS}s 后重试")
                         _time.sleep(RETRY_DELAY_SECS)
                         continue
                     raise
@@ -393,7 +393,7 @@ class GptImage2Generator:
             # 比例校验
             w, h = read_png_dimensions(output_path)
             if aspect_acceptable(w, h, self.aspect_ratio):
-                print(f"✅ 已保存: {output_path}  ({w}×{h}, 比例 {w/h:.3f}, 目标 {self.aspect_ratio})")
+                print(f"[OK] 已保存: {output_path}  ({w}x{h}, 比例 {w/h:.3f}, 目标 {self.aspect_ratio})")
                 return output_path
 
             # 比例偏离
@@ -401,7 +401,7 @@ class GptImage2Generator:
             expected = ASPECT_RATIO_VALUES.get(self.aspect_ratio, 16/9)
             dev_pct = abs(actual_ratio - expected) / expected * 100 if expected else 0
             if ratio_attempt < MAX_ASPECT_RETRIES:
-                print(f"📐 [scene {scene_index}] 尺寸 {w}×{h} (比例 {actual_ratio:.3f}) "
+                print(f"📐 [scene {scene_index}] 尺寸 {w}x{h} (比例 {actual_ratio:.3f}) "
                       f"偏离目标 {self.aspect_ratio} {dev_pct:.0f}%，重生 ({ratio_attempt+1}/{MAX_ASPECT_RETRIES})")
                 try:
                     os.remove(output_path)
@@ -409,7 +409,7 @@ class GptImage2Generator:
                     pass
                 continue
             else:
-                print(f"⚠️ [scene {scene_index}] 尺寸 {w}×{h} 仍偏离 {dev_pct:.0f}%，已达比例重试上限，保留")
+                print(f"(!) [scene {scene_index}] 尺寸 {w}x{h} 仍偏离 {dev_pct:.0f}%，已达比例重试上限，保留")
                 return output_path
 
         return output_path

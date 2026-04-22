@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ##############################################################################
-# gpt-image2-ppt-skills — Claude ​Code Skill 安装脚本
+# gpt-image2-ppt-skills -- Claude ​Code Skill 安装脚本
 #
 # 把当前仓库内容拷贝到 ~/.claude/skills/gpt-image2-ppt-skills/
 # 并安装 Python 依赖、引导配置 .env。
@@ -17,16 +17,16 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-print_info()    { echo -e "${BLUE}ℹ️  $1${NC}"; }
-print_success() { echo -e "${GREEN}✅ $1${NC}"; }
-print_warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
-print_error()   { echo -e "${RED}❌ $1${NC}"; }
+print_info()    { echo -e "${BLUE}(i)  $1${NC}"; }
+print_success() { echo -e "${GREEN}[OK] $1${NC}"; }
+print_warning() { echo -e "${YELLOW}(!)  $1${NC}"; }
+print_error()   { echo -e "${RED}[X] $1${NC}"; }
 print_header()  { echo ""; echo "========================================"; echo "$1"; echo "========================================"; echo ""; }
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
 
 main() {
-    print_header "gpt-image2-ppt-skills — 安装"
+    print_header "gpt-image2-ppt-skills -- 安装"
 
     SKILL_DIR="$HOME/.claude/skills/gpt-image2-ppt-skills"
     print_info "目标目录: $SKILL_DIR"

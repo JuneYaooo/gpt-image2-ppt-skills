@@ -2,7 +2,7 @@
 
 > 用 OpenAI 官方 `gpt-image-2` Images API 生成视觉风格强烈的 PPT 图片，自动产出可键盘翻页的 HTML viewer。Claude Code Skill / OpenClaw Skill。
 
-🌐 **English** ▶ [README.en.md](./README.en.md)
+🌐 **English** > [README.en.md](./README.en.md)
 
 ## ✨ 特性
 
@@ -10,7 +10,7 @@
 - 🪄 **模板克隆模式**：传一个 .pptx，自动渲染 + vision 抽风格 + JSON Schema，新内容仿这个模板出图
 - 🤖 **官方 OpenAI Images API**：模型 `gpt-image-2`
 - 🔄 **OpenAI 兼容**：base_url 可换成任何兼容中转站
-- 🖼 **16:9 高清 PPT**：默认 1536×1024，`quality=high`
+- 🖼 **16:9 高清 PPT**：默认 1536x1024，`quality=high`
 - 🎮 **HTML viewer**：键盘翻页、空格自动播放、ESC 全屏、触摸滑动
 - 🧩 **逐页迭代**：`--slides 1,3,5` 只生成指定页，跑过的自动跳过
 
@@ -95,7 +95,7 @@ python3 generate_ppt.py ... --rebuild-template-cache
 
 `--template-strict` 表示每页都把模板对应页作为 image reference 传给 gpt-image-2，仿真度最高。
 
-不传 `--template-images` 时会自动调 `render_template.py`，按优先级：本机 `libreoffice` → 本机 docker 跑 `linuxserver/libreoffice` → 报错让用户手工导出 PNG。PDF → PNG 走 `pymupdf`（已在 requirements）。
+不传 `--template-images` 时会自动调 `render_template.py`，按优先级：本机 `libreoffice` -> 本机 docker 跑 `linuxserver/libreoffice` -> 报错让用户手工导出 PNG。PDF -> PNG 走 `pymupdf`（已在 requirements）。
 
 第一次跑 vision 会调 `gemini-3.1-pro-preview`（在 `.env` 的 `VISION_*` 里配），输出每页的 `summary` + `json_schema` 缓存到 `template_cache/`。后续同一模板秒匹配。
 
@@ -114,12 +114,12 @@ python3 generate_ppt.py ... --rebuild-template-cache
 
 ```
 outputs/20260422_153012/
-├── images/
-│   ├── slide-01.png
-│   ├── slide-02.png
-│   └── ...
-├── index.html       # 浏览器打开就能键盘翻页
-└── prompts.json     # 每页完整 prompt，方便复盘
+|---- images/
+|   |---- slide-01.png
+|   |---- slide-02.png
+|   \---- ...
+|---- index.html       # 浏览器打开就能键盘翻页
+\---- prompts.json     # 每页完整 prompt，方便复盘
 ```
 
 ## 🎨 十种内置风格
@@ -159,8 +159,8 @@ Claude 会：
 
 ## 🙏 致谢
 
-- [op7418/NanoBanana-PPT-Skills](https://github.com/op7418/NanoBanana-PPT-Skills) — 风格 prompts 与 viewer 模板的原始作者，本项目把图片后端从 Nano Banana Pro 换成了 OpenAI gpt-image-2。
-- [lewislulu/html-ppt-skill](https://github.com/lewislulu/html-ppt-skill) — Claude Code skill SKILL.md frontmatter 写法参考。
+- [op7418/NanoBanana-PPT-Skills](https://github.com/op7418/NanoBanana-PPT-Skills) -- 风格 prompts 与 viewer 模板的原始作者，本项目把图片后端从 Nano Banana Pro 换成了 OpenAI gpt-image-2。
+- [lewislulu/html-ppt-skill](https://github.com/lewislulu/html-ppt-skill) -- Claude Code skill SKILL.md frontmatter 写法参考。
 
 ## License
 

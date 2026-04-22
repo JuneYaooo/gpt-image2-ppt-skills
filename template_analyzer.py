@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PPT 模板剖析器 — 把用户的 .pptx + 渲染图喂给 vision，吐出 TemplateProfile JSON。
+PPT 模板剖析器 -- 把用户的 .pptx + 渲染图喂给 vision，吐出 TemplateProfile JSON。
 
 主要职责：
 1. read_pptx_metadata: 用 python-pptx 抽 theme/colors/fonts（可选 fallback）
@@ -9,7 +9,7 @@ PPT 模板剖析器 — 把用户的 .pptx + 渲染图喂给 vision，吐出 Tem
 4. VisionClient: 封装 OpenAI 兼容 chat completions 多模态调用
 5. vision_analyze: 调 vision 抽 global_style + 每页 summary/page_type/json_schema
 6. analyze_template: 顶层入口，带缓存
-7. match_layout: 按 page_type / layout_id 匹配 slide → layout
+7. match_layout: 按 page_type / layout_id 匹配 slide -> layout
 8. coerce_fields: 把自由 content 字符串拆解成 layout schema 的 fields
 """
 from __future__ import annotations
@@ -98,13 +98,13 @@ def read_pptx_metadata(pptx_path: str) -> Dict[str, Any]:
     try:
         from pptx import Presentation
     except ImportError:
-        print("⚠️  python-pptx 未安装，跳过 .pptx 结构读取")
+        print("(!)  python-pptx 未安装，跳过 .pptx 结构读取")
         return {}
 
     try:
         prs = Presentation(pptx_path)
     except Exception as e:
-        print(f"⚠️  打开 .pptx 失败: {e}")
+        print(f"(!)  打开 .pptx 失败: {e}")
         return {}
 
     width_emu = prs.slide_width
@@ -258,7 +258,7 @@ class VisionClient:
                 transient = any(s in msg_s for s in ("timeout", "Read timed out", "Connection aborted",
                                                      "RemoteDisconnected", "502", "503", "504", "524"))
                 if attempt < VISION_MAX_RETRIES and transient:
-                    print(f"⚠️  vision 第 {attempt} 次失败({msg_s})，{VISION_RETRY_DELAY}s 后重试")
+                    print(f"(!)  vision 第 {attempt} 次失败({msg_s})，{VISION_RETRY_DELAY}s 后重试")
                     _time.sleep(VISION_RETRY_DELAY)
                     continue
                 raise
@@ -320,14 +320,14 @@ GLOBAL_USER_TPL = """请基于下方 {n_images} 张 PPT 页的缩略图（按从
 
 【reuse_friendly 判定规则】
 - true（可重复使用）：版式通用、装饰元素与具体语义无强绑定。典型例子：
-  · 纯文字 / 多卡片网格 / 多条目列表 / 通用数据对比 / 章节小节标题
-  · 装饰只是几何形状 / 抽象色块 / 通用图标
+  * 纯文字 / 多卡片网格 / 多条目列表 / 通用数据对比 / 章节小节标题
+  * 装饰只是几何形状 / 抽象色块 / 通用图标
 - false（不建议重复）：版式带强语义锚点，复用会让观众觉得"为什么又是这页"。典型例子：
-  · 封面页（cover）— 整份 deck 只能有 1 个
-  · 含独特角色插画的页（如 3 个具名人物 + 不同职业）
-  · 含独特场景插画的页（如雪山、广播塔、复古收音机等显眼意象）
-  · 多步骤流程页 + 每步独有图标（如 5 步骤 zigzag with 不同 icon），复用会暗示"同一个流程"
-  · novelty 数据可视化页（独特中央装置图）
+  * 封面页（cover）-- 整份 deck 只能有 1 个
+  * 含独特角色插画的页（如 3 个具名人物 + 不同职业）
+  * 含独特场景插画的页（如雪山、广播塔、复古收音机等显眼意象）
+  * 多步骤流程页 + 每步独有图标（如 5 步骤 zigzag with 不同 icon），复用会暗示"同一个流程"
+  * novelty 数据可视化页（独特中央装置图）
 - reuse_reason 用一句话讲明白判定依据，方便用户决策。
 """
 
@@ -352,12 +352,12 @@ def vision_analyze(images: List[str], client: VisionClient, pptx_meta: Dict[str,
 
     layouts = result.get("layouts", [])
     if len(layouts) > len(images):
-        print(f"⚠️  vision 返回 {len(layouts)} 个 layout，超过图片数 {len(images)}；截断")
+        print(f"(!)  vision 返回 {len(layouts)} 个 layout，超过图片数 {len(images)}；截断")
         layouts = layouts[: len(images)]
     if len(layouts) < len(images):
         # vision 经常因 token 限制少返回。补齐占位 layout，把对应模板图当 reference image。
         missing = len(images) - len(layouts)
-        print(f"⚠️  vision 返回 {len(layouts)} 个 layout，少于图片数 {len(images)}；补齐 {missing} 个占位")
+        print(f"(!)  vision 返回 {len(layouts)} 个 layout，少于图片数 {len(images)}；补齐 {missing} 个占位")
         for i in range(len(layouts), len(images)):
             layouts.append({
                 "id": f"layout-{i + 1:02d}",
@@ -415,7 +415,7 @@ def analyze_template(
     """主入口：返回完整 TemplateProfile。
 
     - 仅 pptx_path、未传图片：fallback，只返回基础 metadata，不含 layouts（无法做仿模板）。
-    - 同时传图片 → 调 vision 出完整 profile，命中缓存直接读。
+    - 同时传图片 -> 调 vision 出完整 profile，命中缓存直接读。
     """
     pptx_meta = read_pptx_metadata(pptx_path) if pptx_path else {}
     images = load_template_images(images_dir) if images_dir else []
@@ -423,7 +423,7 @@ def analyze_template(
     source_label = Path(pptx_path).name if pptx_path else (Path(images_dir).name if images_dir else "unknown")
 
     if not images:
-        print("⚠️  未传 --template-images，无法做 vision 风格分析，仅返回 .pptx 元数据")
+        print("(!)  未传 --template-images，无法做 vision 风格分析，仅返回 .pptx 元数据")
         return {
             "version": PROFILE_VERSION,
             "source": source_label,
@@ -445,7 +445,7 @@ def analyze_template(
             with open(cache_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
-            print(f"⚠️  缓存损坏 ({e})，重新分析")
+            print(f"(!)  缓存损坏 ({e})，重新分析")
 
     if client is None:
         client = VisionClient()
@@ -460,7 +460,7 @@ def analyze_template(
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     with open(cache_path, "w", encoding="utf-8") as f:
         json.dump(profile, f, ensure_ascii=False, indent=2)
-    print(f"💾 模板 profile 已缓存 → {cache_path}")
+    print(f"💾 模板 profile 已缓存 -> {cache_path}")
     return profile
 
 
@@ -469,7 +469,7 @@ def analyze_template(
 # =============================================================================
 
 def match_layout(slide: Dict[str, Any], profile: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """按 layout_id → layout-NN 数字尾巴 → page_type → slide_number 索引兜底，返回最贴合 slide 的 layout dict。"""
+    """按 layout_id -> layout-NN 数字尾巴 -> page_type -> slide_number 索引兜底，返回最贴合 slide 的 layout dict。"""
     layouts = profile.get("layouts", [])
     if not layouts:
         return None
@@ -479,22 +479,22 @@ def match_layout(slide: Dict[str, Any], profile: Dict[str, Any]) -> Optional[Dic
         for lay in layouts:
             if lay.get("id") == layout_id:
                 return lay
-        # layout_id 找不到 → 如果是 layout-NN 这种自动 ID，按数字尾巴兜底到第 NN 个 layout，
-        # 保留用户"slide N → 模板第 N 页"的意图
+        # layout_id 找不到 -> 如果是 layout-NN 这种自动 ID，按数字尾巴兜底到第 NN 个 layout，
+        # 保留用户"slide N -> 模板第 N 页"的意图
         m = re.search(r"(\d+)\s*$", layout_id)
         if m:
             idx = int(m.group(1)) - 1
             if 0 <= idx < len(layouts):
-                print(f"⚠️  slide {slide.get('slide_number')} 的 layout_id={layout_id} 缺失，按编号回退 layouts[{idx}]")
+                print(f"(!)  slide {slide.get('slide_number')} 的 layout_id={layout_id} 缺失，按编号回退 layouts[{idx}]")
                 return layouts[idx]
-        print(f"⚠️  slide {slide.get('slide_number')} 指定的 layout_id={layout_id} 在模板中不存在，回退 page_type")
+        print(f"(!)  slide {slide.get('slide_number')} 指定的 layout_id={layout_id} 在模板中不存在，回退 page_type")
 
     page_type = slide.get("page_type", "content")
     type_matches = [lay for lay in layouts if lay.get("page_type") == page_type]
     if type_matches:
         return type_matches[0]
 
-    # 都找不到 → 用第几页对位（slide_number 对应模板第几页，超出取最后）
+    # 都找不到 -> 用第几页对位（slide_number 对应模板第几页，超出取最后）
     n = slide.get("slide_number", 1)
     idx = max(0, min(n - 1, len(layouts) - 1))
     return layouts[idx]
@@ -506,8 +506,8 @@ def check_layout_reuse(slides: List[Dict[str, Any]], profile: Dict[str, Any]) ->
     返回一个警告列表（已格式化的字符串），便于上层直接 print。
     判定路径：先用 match_layout 拿到每个 slide 实际命中的 layout，再按
     layout.id 聚合。
-    - 重复 + reuse_friendly == False：⚠️ 强警告，建议必须换；
-    - 重复 + reuse_friendly == True：ℹ️ 弱提示，建议优先用没用过的 layout；
+    - 重复 + reuse_friendly == False：(!) 强警告，建议必须换；
+    - 重复 + reuse_friendly == True：(i) 弱提示，建议优先用没用过的 layout；
     - 同时附带还未被使用的候选 layout（按 page_type 归组），方便决策。
     """
     warnings: List[str] = []
@@ -544,12 +544,12 @@ def check_layout_reuse(slides: List[Dict[str, Any]], profile: Dict[str, Any]) ->
         )
         if friendly:
             warnings.append(
-                f"ℹ️  layout {lid}（{page_type}）被 slide {slide_nums} 重复 {len(slide_nums)} 次使用，"
+                f"(i)  layout {lid}（{page_type}）被 slide {slide_nums} 重复 {len(slide_nums)} 次使用，"
                 f"虽标 reuse_friendly=True，仍建议换不同 layout 避免视觉重复。{candidate_hint}"
             )
         else:
             warnings.append(
-                f"⚠️  layout {lid}（{page_type}）被 slide {slide_nums} 重复 {len(slide_nums)} 次使用，"
+                f"(!)  layout {lid}（{page_type}）被 slide {slide_nums} 重复 {len(slide_nums)} 次使用，"
                 f"且标 reuse_friendly=False。原因：{reason}\n"
                 f"    强烈建议换 layout。{candidate_hint}"
             )
@@ -601,7 +601,7 @@ def coerce_fields(slide: Dict[str, Any], layout: Dict[str, Any]) -> Dict[str, An
         try:
             jsonschema.validate(instance=fields, schema=schema)
         except jsonschema.ValidationError as ve:
-            print(f"⚠️  slide {slide.get('slide_number')} 字段未通过 schema: {ve.message[:120]}")
+            print(f"(!)  slide {slide.get('slide_number')} 字段未通过 schema: {ve.message[:120]}")
     except ImportError:
         pass
     return fields
@@ -643,7 +643,7 @@ def _content_to_fields(content: str, properties: Dict[str, Any]) -> Dict[str, An
     if array_field and rest_lines:
         items: List[Any] = []
         for ln in rest_lines:
-            cleaned = re.sub(r"^[\-\*\u2022·•\d\.\)\s]+", "", ln).strip()
+            cleaned = re.sub(r"^[\-\*\u2022*•\d\.\)\s]+", "", ln).strip()
             if not cleaned:
                 continue
             if not array_item_props:
@@ -677,7 +677,7 @@ def _content_to_fields(content: str, properties: Dict[str, Any]) -> Dict[str, An
 
 
 # =============================================================================
-# 字段值 → 图片 prompt 拼接
+# 字段值 -> 图片 prompt 拼接
 # =============================================================================
 
 def render_prompt_from_template(

@@ -38,9 +38,9 @@ def find_and_load_env() -> bool:
 
     Search order (first match wins, no parent-directory walking):
     1. $GPT_IMAGE2_PPT_ENV (explicit override)
-    2. <script_dir>/.env  — the skill's own .env
-    3. ~/.claude/skills/gpt-image2-ppt-skills/.env  — default Claude Code install
-    4. ~/skills/gpt-image2-ppt/.env  — default OpenClaw install
+    2. <script_dir>/.env  -- the skill's own .env
+    3. ~/.claude/skills/gpt-image2-ppt-skills/.env  -- default Claude Code install
+    4. ~/skills/gpt-image2-ppt/.env  -- default OpenClaw install
 
     Intentionally does NOT walk parent directories of the script or cwd, to avoid
     accidentally loading unrelated secrets from a surrounding project's .env.
@@ -61,7 +61,7 @@ def find_and_load_env() -> bool:
             print(f"Loaded environment from: {env_path}")
             return True
 
-    # 故意不再 load_dotenv() 兜底——避免 dotenv 的隐式 cwd/父目录搜索
+    # 故意不再 load_dotenv() 兜底----避免 dotenv 的隐式 cwd/父目录搜索
     # 误吃无关项目的 .env。如果 scoped 位置都没 .env，就只用进程 env vars。
     print("Warning: No .env file found in scoped locations; using process env vars only.")
     return False
@@ -236,7 +236,7 @@ def generate_pptx(
         from pptx import Presentation
         from pptx.util import Inches, Emu
     except ImportError:
-        print("⚠️  跳过 .pptx 生成（缺 python-pptx，pip install python-pptx 后重试）")
+        print("(!)  跳过 .pptx 生成（缺 python-pptx，pip install python-pptx 后重试）")
         return None
 
     prs = Presentation()
@@ -258,7 +258,7 @@ def generate_pptx(
         added += 1
 
     if added == 0:
-        print("⚠️  没有可用图片，未生成 .pptx")
+        print("(!)  没有可用图片，未生成 .pptx")
         return None
 
     # 文件名用 plan title（去除非法字符）
@@ -361,7 +361,7 @@ def main() -> None:
     template_profile: Optional[Dict[str, Any]] = None
     if use_template:
         sys.path.insert(0, str(SCRIPT_DIR))
-        # 只给了 .pptx 没给 PNG → 自动渲染到 <cwd>/template_renders/<stem>/
+        # 只给了 .pptx 没给 PNG -> 自动渲染到 <cwd>/template_renders/<stem>/
         if args.template_pptx and not args.template_images:
             from render_template import render_pptx_to_pngs
             print(f"🖨️  --template-images 未指定，自动渲染 {args.template_pptx}")
@@ -373,7 +373,7 @@ def main() -> None:
             rebuild=args.rebuild_template_cache,
         )
         if not template_profile.get("layouts"):
-            print("⚠️  模板分析未产出 layouts（缺 --template-images？），将回退到自由风格 prompt")
+            print("(!)  模板分析未产出 layouts（缺 --template-images？），将回退到自由风格 prompt")
             template_profile = None
 
     with open(args.plan, "r", encoding="utf-8") as f:
@@ -464,7 +464,7 @@ def main() -> None:
         if template_profile:
             layout = match_layout(slide_info, template_profile)
             if layout is None:
-                # 模板未匹配 → 回退到 style_template
+                # 模板未匹配 -> 回退到 style_template
                 prompt = generate_prompt(
                     style_template, page_type, content_text, slide_number, total_slides
                 )
@@ -505,16 +505,16 @@ def main() -> None:
 
         def _run(task):
             n = task["slide_number"]
-            print(f"▶️  [slide {n}] start ({task['page_type']}{' / ref' if task.get('reference_image') else ''})")
+            print(f">️  [slide {n}] start ({task['page_type']}{' / ref' if task.get('reference_image') else ''})")
             try:
                 path = generate_slide(
                     task["prompt"], n, output_dir,
                     reference_image_path=task.get("reference_image"),
                 )
-                print(f"✅ [slide {n}] done")
+                print(f"[OK] [slide {n}] done")
                 return n, path
             except Exception as e:
-                print(f"❌ [slide {n}] failed: {e}")
+                print(f"[X] [slide {n}] failed: {e}")
                 return n, None
 
         with ThreadPoolExecutor(max_workers=worker_count) as executor:

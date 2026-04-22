@@ -2,8 +2,8 @@
 """Render a .pptx template to per-page PNGs.
 
 Backends, in priority order:
-  PPTX → PDF: native LibreOffice CLI > docker linuxserver/libreoffice
-  PDF → PNG:  pymupdf > pdf2image (needs poppler)
+  PPTX -> PDF: native LibreOffice CLI > docker linuxserver/libreoffice
+  PDF -> PNG:  pymupdf > pdf2image (needs poppler)
 
 Default output: <cwd>/template_renders/<pptx_stem>/page-NN.png
 Intermediate PDF goes to <out_dir>/_source.pdf and is left in place
@@ -51,16 +51,16 @@ def render_pptx_to_pngs(
     if not force:
         existing = sorted(out_dir.glob("page-*.png"))
         if existing:
-            print(f"📦 已渲染 {len(existing)} 页 → {out_dir}（用 --force 强制重渲）")
+            print(f"📦 已渲染 {len(existing)} 页 -> {out_dir}（用 --force 强制重渲）")
             return out_dir
 
     pdf_path = out_dir / "_source.pdf"
-    print(f"🖨️  PPTX → PDF：{pptx_path.name}")
+    print(f"🖨️  PPTX -> PDF：{pptx_path.name}")
     _convert_pptx_to_pdf(pptx_path, pdf_path)
 
-    print(f"🖼️  PDF → PNG（dpi={dpi}）...")
+    print(f"🖼️  PDF -> PNG（dpi={dpi}）...")
     n = _rasterize_pdf(pdf_path, out_dir, dpi=dpi)
-    print(f"✅ 渲染 {n} 页 → {out_dir}")
+    print(f"[OK] 渲染 {n} 页 -> {out_dir}")
     return out_dir
 
 
@@ -149,7 +149,7 @@ def _rasterize_pdf(pdf_path: Path, out_dir: Path, dpi: int = 144) -> int:
         from pdf2image import convert_from_path  # type: ignore
     except ImportError:
         raise RuntimeError(
-            "PDF → PNG 缺依赖。任选一种装：\n"
+            "PDF -> PNG 缺依赖。任选一种装：\n"
             "  - pip install pymupdf  （推荐，单装即可）\n"
             "  - pip install pdf2image && sudo apt-get install -y poppler-utils"
         )
@@ -160,7 +160,7 @@ def _rasterize_pdf(pdf_path: Path, out_dir: Path, dpi: int = 144) -> int:
 
 
 def _cli() -> None:
-    p = argparse.ArgumentParser(description="Render .pptx → per-page PNGs")
+    p = argparse.ArgumentParser(description="Render .pptx -> per-page PNGs")
     p.add_argument("pptx", help="path to .pptx file")
     p.add_argument("-o", "--out", help="output directory (default: <cwd>/template_renders/<stem>/)")
     p.add_argument("--dpi", type=int, default=144, help="PNG dpi (default: 144)")

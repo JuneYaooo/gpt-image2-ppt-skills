@@ -1,6 +1,6 @@
 interface:
   display_name: "GPT-Image-2 PPT Generator"
-  short_description: "Generate visually striking PPT decks via OpenAI gpt-image-2 — 10 curated styles plus a template-clone mode that mimics any user-supplied .pptx. Outputs an HTML viewer + 16:9 .pptx."
+  short_description: "Generate visually striking PPT decks via OpenAI gpt-image-2 -- 10 curated styles plus a template-clone mode that mimics any user-supplied .pptx. Outputs an HTML viewer + 16:9 .pptx."
   default_prompt: "Make me a 5-slide deck about [topic] using gpt-image2-ppt; pick a fitting style from styles/."
 
 # Trust surface (what the user agrees to when installing this skill):
@@ -10,5 +10,5 @@ interface:
 #     VISION_BASE_URL endpoint you set (template-clone mode only).
 #   - Downloads images returned by the model API; URLs are printed before
 #     download, capped at 50MB, http/https only.
-#   - Spawns LibreOffice (native or docker) to render template .pptx → PNG.
+#   - Spawns LibreOffice (native or docker) to render template .pptx -> PNG.
 #   - Writes outputs to <cwd>/{template_renders,template_cache,outputs}/.
