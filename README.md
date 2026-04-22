@@ -68,26 +68,42 @@ python3 generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md
 python3 generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md --slides 3,5
 ```
 
-### 2.5 仿用户自己的 PPT 模板（v2）
+### 2.5 仿用户自己的 PPT 模板
 
 ```bash
-# 默认模板克隆：vision 抽风格 + 每页 schema，按 schema 拼图片 prompt
+# 一行：自动渲染 + vision 抽风格 + 出图。本机有 LibreOffice 或 docker 镜像即可
 python3 generate_ppt.py \
   --plan slides_plan.json \
   --template-pptx ./company-template.pptx \
-  --template-images ./template_renders/   # 用户在 PowerPoint 里导出每页 PNG
+  --template-strict
 
-# 高保真：把模板对应页作为 image reference 传给 gpt-image-2
+# 显式指定渲染目录（已经手动跑过 render_template.py 或自己导出过 PNG）
 python3 generate_ppt.py \
   --plan slides_plan.json \
-  --template-images ./template_renders/ \
+  --template-pptx ./company-template.pptx \
+  --template-images ./template_renders/company-template \
   --template-strict
 
 # 强制重跑 vision（默认会读 template_cache/<sha256>.json 缓存）
 python3 generate_ppt.py ... --rebuild-template-cache
 ```
 
+`--template-strict` 表示每页都把模板对应页作为 image reference 传给 gpt-image-2，仿真度最高。
+
+不传 `--template-images` 时会自动调 `render_template.py`，按优先级：本机 `libreoffice` → 本机 docker 跑 `linuxserver/libreoffice` → 报错让用户手工导出 PNG。PDF → PNG 走 `pymupdf`（已在 requirements）。
+
 第一次跑 vision 会调 `gemini-3.1-pro-preview`（在 `.env` 的 `VISION_*` 里配），输出每页的 `summary` + `json_schema` 缓存到 `template_cache/`。后续同一模板秒匹配。
+
+#### 渲染中间产物落盘
+
+| 路径 | 内容 |
+| --- | --- |
+| `<cwd>/template_renders/<stem>/page-NN.png` | LibreOffice 渲染的每页 PNG |
+| `<cwd>/template_renders/<stem>/_source.pdf` | LibreOffice 中间产物（顺手保留以便人工排查） |
+| `<cwd>/template_cache/<sha256>.json` | vision 风格分析缓存 |
+| `<cwd>/outputs/<timestamp>/` | 每次生成产物 |
+
+把这三个目录加进项目 `.gitignore`。
 
 ### 3. 看产物
 
@@ -124,7 +140,8 @@ Claude 会：
 ## 📦 依赖
 
 - Python 3.8+
-- `requests`、`python-dotenv`（`pip install -r requirements.txt`）
+- `pip install -r requirements.txt` 装齐所有依赖（`requests` / `python-dotenv` / `python-pptx` / `jsonschema` / `pymupdf`）
+- 模板克隆模式额外需要：本机 `libreoffice` 或本机 docker + `linuxserver/libreoffice` 镜像
 
 ## 🙏 致谢
 

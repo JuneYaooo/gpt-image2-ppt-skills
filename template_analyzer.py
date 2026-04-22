@@ -337,17 +337,39 @@ def vision_analyze(images: List[str], client: VisionClient, pptx_meta: Dict[str,
         raise ValueError(f"vision 返回结构不合法: {str(result)[:300]}")
 
     layouts = result.get("layouts", [])
-    if len(layouts) != len(images):
-        print(f"⚠️  vision 返回 {len(layouts)} 个 layout，与图片数 {len(images)} 不一致；按图片数对齐")
-    # 给每个 layout 注入 reference_image 路径
+    if len(layouts) > len(images):
+        print(f"⚠️  vision 返回 {len(layouts)} 个 layout，超过图片数 {len(images)}；截断")
+        layouts = layouts[: len(images)]
+    if len(layouts) < len(images):
+        # vision 经常因 token 限制少返回。补齐占位 layout，把对应模板图当 reference image。
+        missing = len(images) - len(layouts)
+        print(f"⚠️  vision 返回 {len(layouts)} 个 layout，少于图片数 {len(images)}；补齐 {missing} 个占位")
+        for i in range(len(layouts), len(images)):
+            layouts.append({
+                "id": f"layout-{i + 1:02d}",
+                "page_index": i,
+                "page_type": "content",
+                "summary": "（vision 未返回此页 layout，直接用模板图作为参考）",
+                "json_schema": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string", "minLength": 2, "maxLength": 40},
+                        "body": {"type": "string", "minLength": 0, "maxLength": 600},
+                    },
+                    "required": ["title"],
+                    "additionalProperties": False,
+                },
+            })
+    result["layouts"] = layouts
+
+    # 给每个 layout 注入 reference_image 路径并校准基础字段
     for i, layout in enumerate(layouts):
-        if i < len(images):
-            layout["reference_image"] = str(Path(images[i]).resolve())
-            layout.setdefault("page_index", i)
-            pt = layout.get("page_type", "")
-            if pt not in VALID_PAGE_TYPES:
-                layout["page_type"] = "content"
-            layout.setdefault("id", f"layout-{i + 1:02d}")
+        layout["reference_image"] = str(Path(images[i]).resolve())
+        layout.setdefault("page_index", i)
+        pt = layout.get("page_type", "")
+        if pt not in VALID_PAGE_TYPES:
+            layout["page_type"] = "content"
+        layout.setdefault("id", f"layout-{i + 1:02d}")
     return result
 
 
@@ -411,6 +433,8 @@ def analyze_template(
     profile["source_hash"] = src_hash
     profile["pptx_meta"] = pptx_meta
 
+    # 防御性 mkdir：极少数情况下 cache_root 在前面 mkdir 后被外部清掉
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
     with open(cache_path, "w", encoding="utf-8") as f:
         json.dump(profile, f, ensure_ascii=False, indent=2)
     print(f"💾 模板 profile 已缓存 → {cache_path}")
@@ -422,7 +446,7 @@ def analyze_template(
 # =============================================================================
 
 def match_layout(slide: Dict[str, Any], profile: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """按 layout_id → page_type → 顺序兜底，返回最贴合 slide 的 layout dict。"""
+    """按 layout_id → layout-NN 数字尾巴 → page_type → slide_number 索引兜底，返回最贴合 slide 的 layout dict。"""
     layouts = profile.get("layouts", [])
     if not layouts:
         return None
@@ -432,7 +456,14 @@ def match_layout(slide: Dict[str, Any], profile: Dict[str, Any]) -> Optional[Dic
         for lay in layouts:
             if lay.get("id") == layout_id:
                 return lay
-        # layout_id 找不到 → 退到 page_type
+        # layout_id 找不到 → 如果是 layout-NN 这种自动 ID，按数字尾巴兜底到第 NN 个 layout，
+        # 保留用户"slide N → 模板第 N 页"的意图
+        m = re.search(r"(\d+)\s*$", layout_id)
+        if m:
+            idx = int(m.group(1)) - 1
+            if 0 <= idx < len(layouts):
+                print(f"⚠️  slide {slide.get('slide_number')} 的 layout_id={layout_id} 缺失，按编号回退 layouts[{idx}]")
+                return layouts[idx]
         print(f"⚠️  slide {slide.get('slide_number')} 指定的 layout_id={layout_id} 在模板中不存在，回退 page_type")
 
     page_type = slide.get("page_type", "content")

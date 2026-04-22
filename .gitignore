@@ -209,5 +209,6 @@ __marimo__/
 # gpt-image2-ppt-skills
 outputs/
 template_cache/
+template_renders/
 .env
 tmp_*

@@ -360,6 +360,11 @@ def main() -> None:
     template_profile: Optional[Dict[str, Any]] = None
     if use_template:
         sys.path.insert(0, str(SCRIPT_DIR))
+        # 只给了 .pptx 没给 PNG → 自动渲染到 <cwd>/template_renders/<stem>/
+        if args.template_pptx and not args.template_images:
+            from render_template import render_pptx_to_pngs
+            print(f"🖨️  --template-images 未指定，自动渲染 {args.template_pptx}")
+            args.template_images = str(render_pptx_to_pngs(args.template_pptx))
         from template_analyzer import analyze_template
         template_profile = analyze_template(
             pptx_path=args.template_pptx,
