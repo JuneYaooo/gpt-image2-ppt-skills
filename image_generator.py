@@ -171,12 +171,15 @@ class GptImage2Generator:
 
     # ---------- 端点 1: /v1/chat/completions ----------
 
-    def _request_via_chat(self, prompt: str, size: str) -> str:
+    def _request_via_chat(self, prompt: str, size: str, reference_image_path: Optional[str] = None) -> str:
         """流式请求 chat completions，从增量文本中拼接出图片 URL / b64。
 
         中转站（如聚灵）把图片模型挂在 chat completions 上时，通常要求 stream=True。
         响应里会先推送进度文本（"> 进度：25%"），最后吐 markdown 图片
         （"![image](http://...png)"）或 base64。
+
+        reference_image_path 不为空时，把该图片作为多模态 input 一并塞进 messages，
+        让 gpt-image-2 按它的视觉风格出新图（高保真 / 模板克隆模式）。
         """
         url = f"{self.base_url}/v1/chat/completions"
         # 用比例描述而不是具体像素 —— gpt-image 类模型更听自然语言 "宽屏 16:9"，
@@ -199,10 +202,26 @@ class GptImage2Generator:
                 "Output MUST be 16:9 landscape widescreen, NEVER square or portrait."
             )
 
+        full_prompt = f"{prompt}{aspect_hint}"
+        if reference_image_path and os.path.exists(reference_image_path):
+            with open(reference_image_path, "rb") as f:
+                ref_b64 = base64.b64encode(f.read()).decode("ascii")
+            ref_data_url = f"data:image/png;base64,{ref_b64}"
+            user_content: Any = [
+                {"type": "image_url", "image_url": {"url": ref_data_url}},
+                {"type": "text", "text": (
+                    "请以上面这张图作为视觉风格参考（配色 / 字体 / 装饰元素 / 布局氛围），"
+                    "按下方新内容生成一张全新的 PPT 页，不要复制原图的文字内容。\n\n"
+                    + full_prompt
+                )},
+            ]
+        else:
+            user_content = full_prompt
+
         payload = {
             "model": self.model_name,
             "messages": [
-                {"role": "user", "content": f"{prompt}{aspect_hint}"}
+                {"role": "user", "content": user_content}
             ],
             "stream": True,
             "temperature": 0.7,
@@ -300,6 +319,7 @@ class GptImage2Generator:
         scene_data: Dict[str, Any],
         output_path: str,
         size: str = "auto",
+        reference_image_path: Optional[str] = None,
     ) -> str:
         scene_index = scene_data.get("index", 0)
         prompt = scene_data.get("image_prompt", "")
@@ -322,15 +342,22 @@ class GptImage2Generator:
             for attempt in range(1, MAX_RETRIES + 1):
                 try:
                     if self.endpoint == "images":
-                        payload = self._request_via_images(prompt, target_size)
+                        # images endpoint 暂不支持 reference image，自动 fallback 到 chat
+                        if reference_image_path:
+                            payload = self._request_via_chat(prompt, target_size, reference_image_path)
+                        else:
+                            payload = self._request_via_images(prompt, target_size)
                     elif self.endpoint == "chat":
-                        payload = self._request_via_chat(prompt, target_size)
+                        payload = self._request_via_chat(prompt, target_size, reference_image_path)
                     else:  # auto
                         try:
-                            payload = self._request_via_images(prompt, target_size)
+                            if reference_image_path:
+                                payload = self._request_via_chat(prompt, target_size, reference_image_path)
+                            else:
+                                payload = self._request_via_images(prompt, target_size)
                         except Exception as e:
                             print(f"⚠️ images 失败，回退到 chat: {str(e)[:120]}")
-                            payload = self._request_via_chat(prompt, target_size)
+                            payload = self._request_via_chat(prompt, target_size, reference_image_path)
 
                     self._save_payload(payload, output_path)
                     break  # 成功落盘，跳出瞬态重试循环

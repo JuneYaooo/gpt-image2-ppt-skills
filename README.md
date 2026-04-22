@@ -5,7 +5,8 @@
 ## ✨ 特性
 
 - 🎨 **三种内置风格**：渐变玻璃（gradient-glass）/ 清爽科技蓝（clean-tech-blue）/ 矢量插画（vector-illustration）
-- 🤖 **官方 OpenAI Images API**：`POST /v1/images/generations`，模型 `gpt-image-2`
+- 🪄 **模板克隆模式**：传一个 .pptx + 每页 PNG，vision 抽风格 + JSON Schema，新内容仿这个模板出图
+- 🤖 **官方 OpenAI Images API**：`POST /v1/chat/completions`，模型 `gpt-image-2`
 - 🔄 **OpenAI 兼容**：base_url 可换成任何兼容中转站
 - 🖼️ **16:9 高清 PPT**：默认 1536×1024，`quality=high`
 - 🎮 **HTML viewer**：键盘翻页、空格自动播放、ESC 全屏、触摸滑动
@@ -30,6 +31,11 @@ OPENAI_BASE_URL=https://api.openai.com    # 或任意 OpenAI 兼容中转站
 OPENAI_API_KEY=sk-...                     # 必需
 GPT_IMAGE_MODEL_NAME=gpt-image-2          # 默认 gpt-image-2
 GPT_IMAGE_QUALITY=high                    # low / medium / high / auto
+
+# 可选：仅模板克隆模式需要
+VISION_BASE_URL=https://daydream88.fun/v1
+VISION_API_KEY=sk-...
+VISION_MODEL_NAME=gemini-3.1-pro-preview
 ```
 
 ## 📝 用法
@@ -61,6 +67,27 @@ python3 generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md
 # 只重生第 3 和第 5 页
 python3 generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md --slides 3,5
 ```
+
+### 2.5 仿用户自己的 PPT 模板（v2）
+
+```bash
+# 默认模板克隆：vision 抽风格 + 每页 schema，按 schema 拼图片 prompt
+python3 generate_ppt.py \
+  --plan slides_plan.json \
+  --template-pptx ./company-template.pptx \
+  --template-images ./template_renders/   # 用户在 PowerPoint 里导出每页 PNG
+
+# 高保真：把模板对应页作为 image reference 传给 gpt-image-2
+python3 generate_ppt.py \
+  --plan slides_plan.json \
+  --template-images ./template_renders/ \
+  --template-strict
+
+# 强制重跑 vision（默认会读 template_cache/<sha256>.json 缓存）
+python3 generate_ppt.py ... --rebuild-template-cache
+```
+
+第一次跑 vision 会调 `gemini-3.1-pro-preview`（在 `.env` 的 `VISION_*` 里配），输出每页的 `summary` + `json_schema` 缓存到 `template_cache/`。后续同一模板秒匹配。
 
 ### 3. 看产物
 

@@ -153,6 +153,7 @@ def generate_slide(
     prompt: str,
     slide_number: int,
     output_dir: str,
+    reference_image_path: Optional[str] = None,
 ) -> Optional[str]:
     """Generate a single PPT slide image using gpt-image-2."""
     sys.path.insert(0, str(SCRIPT_DIR))
@@ -168,7 +169,11 @@ def generate_slide(
             "index": slide_number,
             "image_prompt": prompt,
         }
-        generator.generate_scene_image(scene_data=scene_data, output_path=image_path)
+        generator.generate_scene_image(
+            scene_data=scene_data,
+            output_path=image_path,
+            reference_image_path=reference_image_path,
+        )
         print(f"  Slide {slide_number} saved: {image_path}")
         return image_path
 
@@ -285,12 +290,30 @@ Environment variables (set in .env file):
     )
 
     parser.add_argument("--plan", required=True, help="Path to slides plan JSON file")
-    parser.add_argument("--style", required=True, help="Path to style template file")
+    parser.add_argument("--style", help="Path to style template file (与 --template-pptx 二选一)")
     parser.add_argument("--output", help="Output directory path (default: outputs/TIMESTAMP)")
     parser.add_argument(
         "--template",
         default=DEFAULT_TEMPLATE_PATH,
         help=f"HTML template path (default: {DEFAULT_TEMPLATE_PATH})",
+    )
+    parser.add_argument(
+        "--template-pptx",
+        help="用户的 .pptx 模板路径，启用「仿模板」模式",
+    )
+    parser.add_argument(
+        "--template-images",
+        help="模板每页 PNG 所在目录（强烈建议传，没有则只读 .pptx XML，不能跑 vision）",
+    )
+    parser.add_argument(
+        "--template-strict",
+        action="store_true",
+        help="高保真模式：把模板对应页作为 image reference 传给 gpt-image-2 出新图",
+    )
+    parser.add_argument(
+        "--rebuild-template-cache",
+        action="store_true",
+        help="无视模板缓存重新跑 vision",
     )
     parser.add_argument(
         "--slides",
@@ -317,16 +340,38 @@ def main() -> None:
     parser = create_argument_parser()
     args = parser.parse_args()
 
-    style_path = args.style
-    if not os.path.isabs(style_path):
-        candidate = SCRIPT_DIR / style_path
-        if candidate.exists():
-            style_path = str(candidate)
+    # 校验：style 与 template-pptx 至少有一个
+    use_template = bool(args.template_pptx or args.template_images)
+    if not use_template and not args.style:
+        parser.error("必须传 --style 或 --template-pptx / --template-images 至少其一")
+
+    style_template = ""
+    if args.style:
+        style_path = args.style
+        if not os.path.isabs(style_path):
+            candidate = SCRIPT_DIR / style_path
+            if candidate.exists():
+                style_path = str(candidate)
+        style_template = load_style_template(style_path)
+    else:
+        style_path = "(template-derived)"
+
+    # 模板模式：跑 vision 拿 TemplateProfile（带缓存）
+    template_profile: Optional[Dict[str, Any]] = None
+    if use_template:
+        sys.path.insert(0, str(SCRIPT_DIR))
+        from template_analyzer import analyze_template
+        template_profile = analyze_template(
+            pptx_path=args.template_pptx,
+            images_dir=args.template_images,
+            rebuild=args.rebuild_template_cache,
+        )
+        if not template_profile.get("layouts"):
+            print("⚠️  模板分析未产出 layouts（缺 --template-images？），将回退到自由风格 prompt")
+            template_profile = None
 
     with open(args.plan, "r", encoding="utf-8") as f:
         slides_plan = json.load(f)
-
-    style_template = load_style_template(style_path)
 
     if args.output:
         output_dir = args.output
@@ -348,6 +393,10 @@ def main() -> None:
     print("PPT Generator (gpt-image-2) Started")
     print("=" * 60)
     print(f"Style: {style_path}")
+    if template_profile:
+        print(f"Template: {template_profile.get('source')} (hash={template_profile.get('source_hash')}, "
+              f"{len(template_profile.get('layouts', []))} layouts)")
+        print(f"Strict mode: {args.template_strict}")
     print(f"Slides: {len(slides)} / {total_slides}")
     print(f"Output: {output_dir}")
     print(f"Concurrency: {args.concurrency}")
@@ -360,17 +409,26 @@ def main() -> None:
             "total_slides": total_slides,
             "model": os.getenv("GPT_IMAGE_MODEL_NAME", "gpt-image-2"),
             "style": style_path,
+            "template": template_profile.get("source") if template_profile else None,
+            "template_strict": args.template_strict if template_profile else False,
             "generated_at": datetime.now().isoformat(),
         },
         "slides": [],
     }
+
+    if template_profile:
+        from template_analyzer import (
+            match_layout,
+            coerce_fields,
+            render_prompt_from_template,
+        )
 
     # 收集所有待跑任务（跳过已存在的）
     pending_tasks = []
     for slide_info in slides:
         slide_number = slide_info["slide_number"]
         page_type = slide_info.get("page_type", "content")
-        content_text = slide_info["content"]
+        content_text = slide_info.get("content", "")
 
         existing = os.path.join(output_dir, "images", f"slide-{slide_number:02d}.png")
         if os.path.exists(existing):
@@ -384,14 +442,39 @@ def main() -> None:
             })
             continue
 
-        prompt = generate_prompt(
-            style_template, page_type, content_text, slide_number, total_slides
-        )
+        reference_image = None
+        if template_profile:
+            layout = match_layout(slide_info, template_profile)
+            if layout is None:
+                # 模板未匹配 → 回退到 style_template
+                prompt = generate_prompt(
+                    style_template, page_type, content_text, slide_number, total_slides
+                )
+                matched_layout_id = None
+            else:
+                fields = coerce_fields(slide_info, layout)
+                prompt = render_prompt_from_template(
+                    profile=template_profile,
+                    layout=layout,
+                    fields=fields,
+                    language_rule=LANGUAGE_FONT_RULE.strip(),
+                )
+                matched_layout_id = layout.get("id")
+                if args.template_strict:
+                    reference_image = layout.get("reference_image")
+        else:
+            prompt = generate_prompt(
+                style_template, page_type, content_text, slide_number, total_slides
+            )
+            matched_layout_id = None
+
         pending_tasks.append({
             "slide_number": slide_number,
             "page_type": page_type,
             "content": content_text,
             "prompt": prompt,
+            "reference_image": reference_image,
+            "layout_id": matched_layout_id,
         })
 
     if pending_tasks:
@@ -404,9 +487,12 @@ def main() -> None:
 
         def _run(task):
             n = task["slide_number"]
-            print(f"▶️  [slide {n}] start ({task['page_type']})")
+            print(f"▶️  [slide {n}] start ({task['page_type']}{' / ref' if task.get('reference_image') else ''})")
             try:
-                path = generate_slide(task["prompt"], n, output_dir)
+                path = generate_slide(
+                    task["prompt"], n, output_dir,
+                    reference_image_path=task.get("reference_image"),
+                )
                 print(f"✅ [slide {n}] done")
                 return n, path
             except Exception as e:
@@ -426,6 +512,8 @@ def main() -> None:
                 "slide_number": n,
                 "page_type": task["page_type"],
                 "content": task["content"],
+                "layout_id": task.get("layout_id"),
+                "reference_image": task.get("reference_image"),
                 "prompt": task["prompt"],
                 "image_path": results.get(n),
             })
