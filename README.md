@@ -106,4 +106,4 @@ Claude 会：
 
 ## License
 
-MIT.
+Apache License 2.0.
