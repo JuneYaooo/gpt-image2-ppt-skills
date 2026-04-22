@@ -134,33 +134,68 @@ class GptImage2Generator:
     # ---------- 端点 1: /v1/chat/completions ----------
 
     def _request_via_chat(self, prompt: str, size: str) -> str:
+        """流式请求 chat completions，从增量文本中拼接出图片 URL / b64。
+
+        中转站（如聚灵）把图片模型挂在 chat completions 上时，通常要求 stream=True。
+        响应里会先推送进度文本（"> 进度：25%"），最后吐 markdown 图片
+        （"![image](http://...png)"）或 base64。
+        """
         url = f"{self.base_url}/v1/chat/completions"
         payload = {
             "model": self.model_name,
             "messages": [
                 {"role": "user", "content": f"{prompt}\n\n请生成 {size} 尺寸的图片"}
             ],
+            "stream": True,
+            "temperature": 0.7,
         }
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
+            "Accept": "text/event-stream",
         }
-        print(f"🔗 POST {url}  size={size}")
-        resp = requests.post(url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT_SECS)
+        print(f"🔗 POST {url}  size={size}  stream=True")
+        resp = requests.post(
+            url, headers=headers, json=payload,
+            stream=True, timeout=REQUEST_TIMEOUT_SECS,
+        )
         print(f"📥 status={resp.status_code}")
-
         if resp.status_code != 200:
             raise RuntimeError(
                 f"chat 调用失败 (status={resp.status_code}): {resp.text[:500]}"
             )
 
-        result = resp.json()
-        choices = result.get("choices") or []
-        if not choices:
-            raise RuntimeError(f"响应没有 choices: {str(result)[:300]}")
+        full_text = []
+        for line in resp.iter_lines(decode_unicode=True):
+            if not line or not line.startswith("data:"):
+                continue
+            data_str = line[5:].strip()
+            if data_str == "[DONE]":
+                break
+            try:
+                import json as _json
+                chunk = _json.loads(data_str)
+            except Exception:
+                continue
+            choices = chunk.get("choices") or []
+            if not choices:
+                continue
+            delta = choices[0].get("delta") or {}
+            content = delta.get("content")
+            if content:
+                full_text.append(content)
+                # 实时打印进度（截短）
+                snippet = content.replace("\n", " ").strip()
+                if snippet:
+                    print(f"  ↳ {snippet[:80]}")
 
-        content = choices[0].get("message", {}).get("content", "")
-        return self._extract_image(content)
+        merged = "".join(full_text)
+        found = self._extract_from_text(merged)
+        if not found:
+            raise RuntimeError(
+                f"流式响应里没找到图片 URL/base64。完整文本：{merged[:500]}"
+            )
+        return found
 
     # ---------- 端点 2: /v1/images/generations ----------
 
