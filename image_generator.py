@@ -3,16 +3,20 @@
 """
 gpt-image-2 图片生成器
 
-调用 OpenAI 官方 Images API（POST /v1/images/generations）。
-也兼容大多数 OpenAI 兼容中转站（base_url 替换成中转站地址即可）。
+调用 OpenAI 兼容的 /v1/chat/completions 端点，model 设为 gpt-image-2
+（聚灵等中转站把图片模型挂在 chat completions 上，多模态返回）。
+
+如果 base_url 是 OpenAI 官方或支持 Images API 的中转站，
+也可以走 /v1/images/generations —— 由 GPT_IMAGE_ENDPOINT 切换。
 """
 
 from __future__ import annotations
 
 import base64
 import os
+import re
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import requests
 from dotenv import load_dotenv
@@ -28,15 +32,19 @@ ASPECT_TO_SIZE = {
     "1:1": "1024x1024",
 }
 
+REQUEST_TIMEOUT_SECS = 600  # 图片生成可能需要 1-3 分钟
+
 
 class GptImage2Generator:
-    """gpt-image-2 图片生成器（OpenAI 官方 Images API）"""
+    """gpt-image-2 图片生成器"""
 
     def __init__(self, aspect_ratio: str = "16:9") -> None:
         self.base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com").rstrip("/")
         self.api_key = os.getenv("OPENAI_API_KEY", "")
         self.model_name = os.getenv("GPT_IMAGE_MODEL_NAME", "gpt-image-2")
         self.quality = os.getenv("GPT_IMAGE_QUALITY", "high")
+        # endpoint: chat | images | auto（auto 先 images 不行再 chat）
+        self.endpoint = os.getenv("GPT_IMAGE_ENDPOINT", "chat").lower()
 
         if not self.api_key:
             raise ValueError("缺少 OPENAI_API_KEY，请在 .env 中配置")
@@ -46,25 +54,117 @@ class GptImage2Generator:
 
         print(
             f"🎨 初始化 gpt-image-2 生成器 "
-            f"(model={self.model_name}, size={self.default_size}, quality={self.quality})"
+            f"(model={self.model_name}, size={self.default_size}, "
+            f"quality={self.quality}, endpoint={self.endpoint})"
         )
 
+    # ---------- 通用工具 ----------
+
     def _save_b64(self, b64: str, output_path: str) -> None:
-        # 容忍 data:image/png;base64,xxx 这种带前缀的形式
         if "," in b64 and b64.startswith("data:"):
             b64 = b64.split(",", 1)[1]
         with open(output_path, "wb") as f:
             f.write(base64.b64decode(b64))
 
     def _download_url(self, url: str, output_path: str) -> None:
-        print(f"📥 下载图片: {url}")
-        resp = requests.get(url, stream=True, timeout=120)
+        print(f"📥 下载图片: {url[:100]}...")
+        resp = requests.get(url, stream=True, timeout=REQUEST_TIMEOUT_SECS)
         resp.raise_for_status()
         with open(output_path, "wb") as f:
             for chunk in resp.iter_content(chunk_size=8192):
                 f.write(chunk)
 
-    def _request_image(self, prompt: str, size: str) -> Dict[str, Any]:
+    def _save_payload(self, payload: str, output_path: str) -> None:
+        """根据 payload 形态（b64 / data url / 普通 url）落盘。"""
+        if payload.startswith("data:image/") or (len(payload) > 200 and "/" in payload[:200] is False):
+            # data:image/...;base64,xxxxx 或裸 base64
+            self._save_b64(payload, output_path)
+        elif payload.startswith("http"):
+            self._download_url(payload, output_path)
+        else:
+            # 兜底当 base64
+            self._save_b64(payload, output_path)
+
+    # ---------- 多模态响应解析（chat completions 走这里）----------
+
+    def _extract_image(self, content: Any) -> str:
+        """从 chat completions 的 content 中提取图片 payload（b64 或 URL）。"""
+        if isinstance(content, list):
+            for part in content:
+                if not isinstance(part, dict):
+                    continue
+                if part.get("type") == "image_url":
+                    img_url = part.get("image_url", {}).get("url", "")
+                    if img_url:
+                        return img_url
+                if part.get("type") == "text":
+                    text = part.get("text", "")
+                    found = self._extract_from_text(text)
+                    if found:
+                        return found
+            raise RuntimeError(f"multimodal parts 里没找到图片：{str(content)[:300]}")
+
+        if isinstance(content, str):
+            found = self._extract_from_text(content)
+            if found:
+                return found
+            raise RuntimeError(f"text content 里没找到图片：{content[:300]}")
+
+        raise RuntimeError(f"未知 content 类型：{type(content)}")
+
+    def _extract_from_text(self, text: str) -> Optional[str]:
+        # 1) data:image/xxx;base64,YYY
+        m = re.search(r"data:image/[\w]+;base64,[A-Za-z0-9+/=]+", text)
+        if m:
+            return m.group(0)
+        # 2) markdown 图片 ![](url)
+        m = re.search(r"!\[.*?\]\((https?://[^\)\s]+)\)", text)
+        if m:
+            return m.group(1)
+        # 3) 裸图片 URL
+        m = re.search(r"(https?://[^\s\)]+\.(?:png|jpg|jpeg|webp|gif))", text, re.IGNORECASE)
+        if m:
+            return m.group(1)
+        # 4) 任意 http 链接（最后兜底）
+        m = re.search(r"(https?://[^\s\)]+)", text)
+        if m:
+            return m.group(1)
+        return None
+
+    # ---------- 端点 1: /v1/chat/completions ----------
+
+    def _request_via_chat(self, prompt: str, size: str) -> str:
+        url = f"{self.base_url}/v1/chat/completions"
+        payload = {
+            "model": self.model_name,
+            "messages": [
+                {"role": "user", "content": f"{prompt}\n\n请生成 {size} 尺寸的图片"}
+            ],
+        }
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        print(f"🔗 POST {url}  size={size}")
+        resp = requests.post(url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT_SECS)
+        print(f"📥 status={resp.status_code}")
+
+        if resp.status_code != 200:
+            raise RuntimeError(
+                f"chat 调用失败 (status={resp.status_code}): {resp.text[:500]}"
+            )
+
+        result = resp.json()
+        choices = result.get("choices") or []
+        if not choices:
+            raise RuntimeError(f"响应没有 choices: {str(result)[:300]}")
+
+        content = choices[0].get("message", {}).get("content", "")
+        return self._extract_image(content)
+
+    # ---------- 端点 2: /v1/images/generations ----------
+
+    def _request_via_images(self, prompt: str, size: str) -> str:
         url = f"{self.base_url}/v1/images/generations"
         payload = {
             "model": self.model_name,
@@ -79,18 +179,28 @@ class GptImage2Generator:
             "Content-Type": "application/json",
         }
         print(f"🔗 POST {url}  size={size}  quality={self.quality}")
-        print(f"📝 prompt[:100]: {prompt[:100].replace(chr(10), ' ')}{'...' if len(prompt) > 100 else ''}")
-
-        resp = requests.post(url, headers=headers, json=payload, timeout=600)
+        resp = requests.post(url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT_SECS)
         print(f"📥 status={resp.status_code}")
 
         if resp.status_code != 200:
-            body = resp.text[:500]
             raise RuntimeError(
-                f"gpt-image-2 API 调用失败 (status={resp.status_code}): {body}"
+                f"images 调用失败 (status={resp.status_code}): {resp.text[:500]}"
             )
 
-        return resp.json()
+        result = resp.json()
+        data = result.get("data") or []
+        if not data:
+            raise RuntimeError(f"响应没有 data: {str(result)[:300]}")
+        first = data[0]
+        b64 = first.get("b64_json")
+        url_field = first.get("url")
+        if b64:
+            return f"data:image/png;base64,{b64}"
+        if url_field:
+            return url_field
+        raise RuntimeError(f"data[0] 既没 b64_json 也没 url: {str(first)[:300]}")
+
+    # ---------- 对外入口 ----------
 
     def generate_scene_image(
         self,
@@ -98,7 +208,6 @@ class GptImage2Generator:
         output_path: str,
         size: str = "auto",
     ) -> str:
-        """根据场景数据生成单张图片，写入 output_path 后返回该路径。"""
         scene_index = scene_data.get("index", 0)
         prompt = scene_data.get("image_prompt", "")
         if not prompt:
@@ -109,41 +218,31 @@ class GptImage2Generator:
             os.makedirs(out_dir, exist_ok=True)
 
         target_size = self.default_size if size == "auto" else size
+        print(f"📝 prompt[:100]: {prompt[:100].replace(chr(10), ' ')}{'...' if len(prompt) > 100 else ''}")
 
-        print(f"🎨 [gpt-image-2] 生成场景 {scene_index}")
-        result = self._request_image(prompt=prompt, size=target_size)
+        # 按 endpoint 配置选择请求方式
+        if self.endpoint == "images":
+            payload = self._request_via_images(prompt, target_size)
+        elif self.endpoint == "chat":
+            payload = self._request_via_chat(prompt, target_size)
+        else:  # auto
+            try:
+                payload = self._request_via_images(prompt, target_size)
+            except Exception as e:
+                print(f"⚠️ images 失败，回退到 chat: {str(e)[:120]}")
+                payload = self._request_via_chat(prompt, target_size)
 
-        data_list = result.get("data") or []
-        if not data_list:
-            raise RuntimeError(f"响应中没有 data 字段: {str(result)[:300]}")
-
-        first = data_list[0]
-        b64 = first.get("b64_json")
-        url = first.get("url")
-
-        if b64:
-            self._save_b64(b64, output_path)
-        elif url:
-            self._download_url(url, output_path)
-        else:
-            raise RuntimeError(f"data[0] 既没有 b64_json 也没有 url: {str(first)[:300]}")
-
+        self._save_payload(payload, output_path)
         print(f"✅ 已保存: {output_path}")
         return output_path
 
 
 if __name__ == "__main__":
-    # 简易自检：直接跑一次封面图
     import sys
-
     gen = GptImage2Generator(aspect_ratio="16:9")
-    out = "test_output.png"
     gen.generate_scene_image(
-        {
-            "index": 0,
-            "image_prompt": "A clean blue gradient background with the bold white text 'gpt-image-2 Test'",
-        },
-        out,
+        {"index": 0, "image_prompt": "A clean blue gradient background with the bold white text 'gpt-image-2 Test'"},
+        "test_output.png",
     )
-    print(f"自检完成: {Path(out).resolve()}")
+    print(f"自检完成: {Path('test_output.png').resolve()}")
     sys.exit(0)
