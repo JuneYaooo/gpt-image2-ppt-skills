@@ -141,10 +141,23 @@ class GptImage2Generator:
         （"![image](http://...png)"）或 base64。
         """
         url = f"{self.base_url}/v1/chat/completions"
+        # 用比例描述而不是具体像素 —— gpt-image 类模型更听自然语言 "宽屏 16:9"，
+        # 写具体像素值反而被忽略。
+        if self.aspect_ratio == "9:16":
+            aspect_hint = "\n\n【画面比例】请严格按 9:16 竖版手机屏幕比例生成，绝对不要方图。"
+        elif self.aspect_ratio == "1:1":
+            aspect_hint = "\n\n【画面比例】请按 1:1 方形比例生成。"
+        else:
+            aspect_hint = (
+                "\n\n【画面比例】严格按 16:9 横版宽屏比例生成（PPT 演示文稿格式），"
+                "宽度明显大于高度，绝对不要生成方图或近方图。"
+                "Strictly 16:9 widescreen landscape, NEVER square."
+            )
+
         payload = {
             "model": self.model_name,
             "messages": [
-                {"role": "user", "content": f"{prompt}\n\n请生成 {size} 尺寸的图片"}
+                {"role": "user", "content": f"{prompt}{aspect_hint}"}
             ],
             "stream": True,
             "temperature": 0.7,
