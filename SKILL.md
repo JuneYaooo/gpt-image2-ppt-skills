@@ -1,6 +1,6 @@
 ---
 name: gpt-image2-ppt
-description: 用 OpenAI gpt-image-2 生成视觉风格强烈的 PPT 图片（10 套精选风格 / 也可仿用户自带 .pptx 模板），自动产出可键盘翻页的 HTML viewer + 16:9 .pptx。Use when 用户说 "做一份 PPT"、"用 gpt-image 生成 PPT"、"生成幻灯片"、"PPT 封面"、"商业计划书 PPT"、"投资人演示"、"presentation"、"slides"、"deck"、"pitch deck"、"路演"、"杂志风 PPT"、"侘寂风 PPT"、"Riso PPT"、"Y2K PPT"、"科技蓝 PPT"、"按这个模板生成 PPT" 时调用。
+description: Generate visually striking PPT slides via OpenAI's gpt-image-2 — 10 curated styles (Spatial Glass / Tech Blue / Editorial Mono / Dark Aurora / Risograph / Wabi / Swiss Grid / Hand Sketch / Y2K Chrome / Retro Vector) plus a template-clone mode that mimics any user-supplied .pptx; ships an HTML viewer and a 16:9 .pptx. Use when the user asks to make a presentation, slides, deck, pitch deck, investor PPT, magazine-style PPT, or 做一份 PPT / 生成幻灯片 / 用 gpt-image 生成 PPT / 按这个模板生成 PPT.
 ---
 
 # gpt-image2-ppt — 用 gpt-image-2 生成 PPT
@@ -85,11 +85,14 @@ OPENAI_API_KEY=sk-...
 GPT_IMAGE_MODEL_NAME=gpt-image-2
 GPT_IMAGE_QUALITY=high                     # low / medium / high / auto
 
-# 可选：模板克隆模式才需要（vision 分析独立 provider）
-VISION_BASE_URL=https://daydream88.fun/v1
-VISION_API_KEY=sk-...
-VISION_MODEL_NAME=gemini-3.1-pro-preview
+# 可选：模板克隆模式才需要（vision 分析独立 provider）。
+# 不内置默认 endpoint，请填你自己信任的服务，否则就别填这一组。
+# VISION_BASE_URL=https://your-openai-compatible-relay.example.com/v1
+# VISION_API_KEY=sk-...
+# VISION_MODEL_NAME=gemini-3.1-pro-preview
 ```
+
+> **安全提示**：脚本只从 `<script_dir>/.env`、`~/.claude/skills/.../env`、`~/skills/.../env` 与显式 `GPT_IMAGE2_PPT_ENV` 加载凭据，**不会**向上递归读取项目目录里的 `.env`，避免误吃无关密钥。
 
 ## 生成流程（内置风格）
 
@@ -140,13 +143,13 @@ vision 分析时会给每个 layout 标 `reuse_friendly`：
 
 | reuse_friendly | 典型 layout | 多次使用的代价 |
 | --- | --- | --- |
-| `false`（不可复用，⚠️ 强警告） | 封面、3 个具名角色插画页、独特场景图（雪山/广播塔/复古收音机）、5 步骤 zigzag 各步独有图标、novelty 数据中央装置 | 视觉重复非常明显，观众会困惑 |
-| `true`（可复用，但仍建议错开，ℹ️ 弱提示） | 纯文字、卡片网格、通用列表、章节小节标题 | 不致命，但平白浪费模板里的其它好版式 |
+| `false`（不可复用，⚠ 强警告） | 封面、3 个具名角色插画页、独特场景图（雪山/广播塔/复古收音机）、5 步骤 zigzag 各步独有图标、novelty 数据中央装置 | 视觉重复非常明显，观众会困惑 |
+| `true`（可复用，但仍建议错开，ℹ 弱提示） | 纯文字、卡片网格、通用列表、章节小节标题 | 不致命，但平白浪费模板里的其它好版式 |
 
 Claude 在搭 plan 时的执行策略：
 1. **优先把模板里 N 个不同 layout 分配给 N 页 slide**（N 不够就在 SKILL 里看 reuse_friendly=true 的部分挑能复用的）
 2. **如果 plan 里某页内容结构非常相似（比如多个"5 步骤流程"），先尝试改写内容用不同 layout 表达**（4 步骤 + 5 步骤分别用不同流程页），而不是同一个 zigzag 用两次
-3. **冒烟跑完后，看 `Layout 复用检测` 那段输出**：⚠️ 必须改，ℹ️ 看情况改；改 plan 里相应 slide 的 `layout_id` 即可
+3. **冒烟跑完后，看 `Layout 复用检测` 那段输出**：⚠ 必须改，ℹ 看情况改；改 plan 里相应 slide 的 `layout_id` 即可
 4. **看完 cache JSON 选 layout**：`cat <cwd>/template_cache/<sha256>.json | jq '.layouts[] | {id, page_type, reuse_friendly, summary}'` 一眼看清模板有哪些版式可挑
 
 `generate_ppt.py` 在派发任务前会自动跑一次复用检测，把警告打到终端，不阻塞执行。

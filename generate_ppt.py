@@ -34,20 +34,26 @@ CWD = Path.cwd()
 # =============================================================================
 
 def find_and_load_env() -> bool:
-    """
-    Find and load .env file from multiple locations.
+    """Load .env from explicit, scoped locations only.
 
-    Search priority:
-    1. Current script directory
-    2. Parent directories up to project root (containing .git or .env)
-    3. Claude ​Code skill standard location (~/.claude/skills/gpt-image2-ppt-skills/)
+    Search order (first match wins, no parent-directory walking):
+    1. $GPT_IMAGE2_PPT_ENV (explicit override)
+    2. <script_dir>/.env  — the skill's own .env
+    3. ~/.claude/skills/gpt-image2-ppt-skills/.env  — default Claude Code install
+    4. ~/skills/gpt-image2-ppt/.env  — default OpenClaw install
+
+    Intentionally does NOT walk parent directories of the script or cwd, to avoid
+    accidentally loading unrelated secrets from a surrounding project's .env.
     """
-    current_dir = SCRIPT_DIR
-    env_locations = [
-        current_dir / ".env",
-        *[parent / ".env" for parent in current_dir.parents],
+    env_locations = []
+    explicit = os.getenv("GPT_IMAGE2_PPT_ENV")
+    if explicit:
+        env_locations.append(Path(explicit))
+    env_locations.extend([
+        SCRIPT_DIR / ".env",
         Path.home() / ".claude" / "skills" / "gpt-image2-ppt-skills" / ".env",
-    ]
+        Path.home() / "skills" / "gpt-image2-ppt" / ".env",
+    ])
 
     for env_path in env_locations:
         if env_path.exists():
@@ -55,11 +61,8 @@ def find_and_load_env() -> bool:
             print(f"Loaded environment from: {env_path}")
             return True
 
-        if env_path.parent != current_dir and (env_path.parent / ".git").exists():
-            break
-
     load_dotenv(override=True)
-    print("Warning: No .env file found, using system environment variables")
+    print("Warning: No .env file found in scoped locations; using process env vars only.")
     return False
 
 

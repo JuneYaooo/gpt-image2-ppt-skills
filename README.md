@@ -1,6 +1,6 @@
 # gpt-image2-ppt-skills
 
-> 用 OpenAI 官方 `gpt-image-2` Images API 生成视觉风格强烈的 PPT 图片，自动产出可键盘翻页的 HTML viewer。Claude ​Code Skill / OpenClaw Skill。
+> 用 OpenAI 官方 `gpt-image-2` Images API 生成视觉风格强烈的 PPT 图片，自动产出可键盘翻页的 HTML viewer。Claude Code Skill / OpenClaw Skill。
 
 🌐 **English** ▶ [README.en.md](./README.en.md)
 
@@ -10,7 +10,7 @@
 - 🪄 **模板克隆模式**：传一个 .pptx，自动渲染 + vision 抽风格 + JSON Schema，新内容仿这个模板出图
 - 🤖 **官方 OpenAI Images API**：模型 `gpt-image-2`
 - 🔄 **OpenAI 兼容**：base_url 可换成任何兼容中转站
-- 🖼️ **16:9 高清 PPT**：默认 1536×1024，`quality=high`
+- 🖼 **16:9 高清 PPT**：默认 1536×1024，`quality=high`
 - 🎮 **HTML viewer**：键盘翻页、空格自动播放、ESC 全屏、触摸滑动
 - 🧩 **逐页迭代**：`--slides 1,3,5` 只生成指定页，跑过的自动跳过
 
@@ -22,9 +22,9 @@ cd gpt-image2-ppt-skills
 bash install_as_skill.sh
 ```
 
-安装后 skill 会被装到 `~/.claude/skills/gpt-image2-ppt-skills/`，Claude ​Code 重启后自动识别。
+安装后 skill 会被装到 `~/.claude/skills/gpt-image2-ppt-skills/`，Claude Code 重启后自动识别。
 
-## ⚙️ 配置
+## ⚙ 配置
 
 编辑 `~/.claude/skills/gpt-image2-ppt-skills/.env`：
 
@@ -34,11 +34,14 @@ OPENAI_API_KEY=sk-...                     # 必需
 GPT_IMAGE_MODEL_NAME=gpt-image-2          # 默认 gpt-image-2
 GPT_IMAGE_QUALITY=high                    # low / medium / high / auto
 
-# 可选：仅模板克隆模式需要
-VISION_BASE_URL=https://daydream88.fun/v1
-VISION_API_KEY=sk-...
-VISION_MODEL_NAME=gemini-3.1-pro-preview
+# 可选：仅模板克隆模式需要（vision 分析独立 provider）。
+# 不内置默认 endpoint，请填你自己信任的服务，否则就别启用 VISION_*。
+# VISION_BASE_URL=https://your-openai-compatible-relay.example.com/v1
+# VISION_API_KEY=sk-...
+# VISION_MODEL_NAME=gemini-3.1-pro-preview
 ```
+
+> 安全：脚本只从 `<script_dir>/.env`、`~/.claude/skills/.../env`、`~/skills/.../env` 或显式 `GPT_IMAGE2_PPT_ENV` 加载，**不会**向上递归读取项目目录的 `.env`，避免误吃无关密钥。
 
 ## 📝 用法
 
@@ -136,7 +139,7 @@ outputs/20260422_153012/
 
 每个风格的完整 prompt 见 `styles/<id>.md`，按 cover / content / data 三种构图分别给出版式规范。
 
-## 🛠️ 在 Claude ​Code 里调用
+## 🛠 在 Claude Code 里调用
 
 直接和 Claude 说：
 
@@ -157,7 +160,7 @@ Claude 会：
 ## 🙏 致谢
 
 - [op7418/NanoBanana-PPT-Skills](https://github.com/op7418/NanoBanana-PPT-Skills) — 风格 prompts 与 viewer 模板的原始作者，本项目把图片后端从 Nano Banana Pro 换成了 OpenAI gpt-image-2。
-- [lewislulu/html-ppt-skill](https://github.com/lewislulu/html-ppt-skill) — Claude ​Code skill SKILL.md frontmatter 写法参考。
+- [lewislulu/html-ppt-skill](https://github.com/lewislulu/html-ppt-skill) — Claude Code skill SKILL.md frontmatter 写法参考。
 
 ## License
 

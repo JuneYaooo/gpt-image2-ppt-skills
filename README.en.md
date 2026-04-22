@@ -1,6 +1,6 @@
 # gpt-image2-ppt-skills
 
-> Generate visually striking PPT slides with OpenAI's official `gpt-image-2` Images API; ships an instant keyboard-navigable HTML viewer + a 16:9 .pptx file. Works as a Claude ​Code Skill or an OpenClaw Skill.
+> Generate visually striking PPT slides with OpenAI's official `gpt-image-2` Images API; ships an instant keyboard-navigable HTML viewer + a 16:9 .pptx file. Works as a Claude Code Skill or an OpenClaw Skill.
 
 🌐 **中文** ▶ [README.md](./README.md)
 
@@ -10,13 +10,13 @@
 - 🪄 **Template-clone mode**: feed any `.pptx`, the skill auto-renders + asks vision to extract style + JSON Schema, then produces new content in that template's look
 - 🤖 **Official OpenAI Images API**: model `gpt-image-2`
 - 🔄 **OpenAI-compatible**: point `base_url` at any compatible relay
-- 🖼️ **16:9 high-res**: 1536×1024 default, `quality=high`
+- 🖼 **16:9 high-res**: 1536×1024 default, `quality=high`
 - 🎮 **HTML viewer**: arrow-key navigation, space to autoplay, ESC fullscreen, swipe on touch
 - 🧩 **Per-slide iteration**: `--slides 1,3,5` regenerates only those pages, completed PNGs are skipped automatically
 
 ## 🚀 One-line install
 
-### As a Claude ​Code skill
+### As a Claude Code skill
 
 ```bash
 git clone git@github.com:JuneYaooo/gpt-image2-ppt-skills.git
@@ -24,7 +24,7 @@ cd gpt-image2-ppt-skills
 bash install_as_skill.sh
 ```
 
-After installation the skill lives at `~/.claude/skills/gpt-image2-ppt-skills/` and Claude ​Code picks it up after restart.
+After installation the skill lives at `~/.claude/skills/gpt-image2-ppt-skills/` and Claude Code picks it up after restart.
 
 ### As an OpenClaw skill (via ClawHub)
 
@@ -33,7 +33,7 @@ clawhub install gpt-image2-ppt
 # installed to <cwd>/skills/gpt-image2-ppt/
 ```
 
-## ⚙️ Configuration
+## ⚙ Configuration
 
 Edit `~/.claude/skills/gpt-image2-ppt-skills/.env` (or `skills/gpt-image2-ppt/.env` for OpenClaw):
 
@@ -43,11 +43,15 @@ OPENAI_API_KEY=sk-...                     # required
 GPT_IMAGE_MODEL_NAME=gpt-image-2          # default
 GPT_IMAGE_QUALITY=high                    # low / medium / high / auto
 
-# Optional: only required for template-clone mode
-VISION_BASE_URL=https://daydream88.fun/v1
-VISION_API_KEY=sk-...
-VISION_MODEL_NAME=gemini-3.1-pro-preview
+# Optional: only required for template-clone mode (independent vision provider).
+# No default endpoint is shipped — supply your own trusted endpoint, or leave
+# VISION_* unset to disable template-clone mode entirely.
+# VISION_BASE_URL=https://your-openai-compatible-relay.example.com/v1
+# VISION_API_KEY=sk-...
+# VISION_MODEL_NAME=gemini-3.1-pro-preview
 ```
+
+> Security: the script only loads `.env` from `<script_dir>/.env`, `~/.claude/skills/.../env`, `~/skills/.../env`, or an explicit `GPT_IMAGE2_PPT_ENV` path. It does **not** walk parent directories, so it cannot accidentally pick up unrelated project secrets.
 
 ## 📝 Usage
 
@@ -123,8 +127,8 @@ The principle: **1 page : 1 layout, by default.** Vision tags every layout with 
 
 | `reuse_friendly` | Typical layouts | Cost of repeating |
 | --- | --- | --- |
-| `false` (⚠️ strong warning) | Cover / character illustrations / unique scene art / multi-step flows with per-step icons / novelty data centerpieces | Visually obvious repetition, audience confusion |
-| `true` (ℹ️ soft hint) | Plain text / card grids / generic lists / section headers | Tolerable, but wastes the template's other distinctive layouts |
+| `false` (⚠ strong warning) | Cover / character illustrations / unique scene art / multi-step flows with per-step icons / novelty data centerpieces | Visually obvious repetition, audience confusion |
+| `true` (ℹ soft hint) | Plain text / card grids / generic lists / section headers | Tolerable, but wastes the template's other distinctive layouts |
 
 `generate_ppt.py` runs a reuse check before dispatching image generation jobs and prints suggested alternatives. The check never blocks execution.
 
@@ -158,7 +162,7 @@ outputs/20260422_153012/
 
 Each style file is at `styles/<id>.md` and includes cover / content / data composition rules.
 
-## 🛠️ Use it inside Claude ​Code (or OpenClaw)
+## 🛠 Use it inside Claude Code (or OpenClaw)
 
 Just say:
 
@@ -179,7 +183,7 @@ The agent will:
 ## 🙏 Acknowledgements
 
 - [op7418/NanoBanana-PPT-Skills](https://github.com/op7418/NanoBanana-PPT-Skills) — original style prompts + viewer; this project swaps the image backend from Nano Banana Pro to OpenAI gpt-image-2 and rewrites all 3 inherited styles + adds 7 new ones.
-- [lewislulu/html-ppt-skill](https://github.com/lewislulu/html-ppt-skill) — reference for Claude ​Code skill SKILL.md frontmatter.
+- [lewislulu/html-ppt-skill](https://github.com/lewislulu/html-ppt-skill) — reference for Claude Code skill SKILL.md frontmatter.
 
 ## License
 

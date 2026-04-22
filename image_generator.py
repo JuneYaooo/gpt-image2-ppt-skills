@@ -105,11 +105,27 @@ class GptImage2Generator:
             f.write(base64.b64decode(b64))
 
     def _download_url(self, url: str, output_path: str) -> None:
-        print(f"📥 下载图片: {url[:100]}...")
+        # 安全提示：只接受 http/https；下载前打印 host，便于用户识别异常域；
+        # 设最大 50MB 上限避免恶意大文件；非 image/* Content-Type 警告但仍写盘。
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError(f"拒绝下载非 http(s) 协议的 URL: {parsed.scheme}")
+        print(f"📥 下载图片 host={parsed.netloc} path={parsed.path[:80]}")
         resp = requests.get(url, stream=True, timeout=REQUEST_TIMEOUT_SECS)
         resp.raise_for_status()
+        ctype = resp.headers.get("content-type", "")
+        if ctype and not ctype.startswith("image/"):
+            print(f"⚠️  非 image Content-Type: {ctype}（仍尝试写盘，请人工核对）")
+        MAX_BYTES = 50 * 1024 * 1024
+        written = 0
         with open(output_path, "wb") as f:
             for chunk in resp.iter_content(chunk_size=8192):
+                written += len(chunk)
+                if written > MAX_BYTES:
+                    f.close()
+                    os.remove(output_path)
+                    raise ValueError(f"下载超过 {MAX_BYTES} 字节上限，已丢弃 {url[:80]}")
                 f.write(chunk)
 
     def _save_payload(self, payload: str, output_path: str) -> None:
