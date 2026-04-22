@@ -1,19 +1,28 @@
 ---
 name: gpt-image2-ppt
-description: 用 OpenAI gpt-image-2 生成视觉风格强烈的 PPT 图片（渐变玻璃 / 矢量插画 / 清爽科技蓝 / 仿用户自带 .pptx 模板），自动产出可键盘翻页的 HTML viewer。Use when 用户说 "做一份 PPT"、"用 gpt-image 生成 PPT"、"生成幻灯片"、"PPT 封面"、"商业计划书 PPT"、"投资人演示"、"presentation"、"slides"、"deck"、"pitch deck"、"路演"、"科技蓝 PPT"、"玻璃拟态 PPT"、"矢量插画 PPT"、"按这个模板生成 PPT" 时调用。
+description: 用 OpenAI gpt-image-2 生成视觉风格强烈的 PPT 图片（10 套精选风格 / 也可仿用户自带 .pptx 模板），自动产出可键盘翻页的 HTML viewer + 16:9 .pptx。Use when 用户说 "做一份 PPT"、"用 gpt-image 生成 PPT"、"生成幻灯片"、"PPT 封面"、"商业计划书 PPT"、"投资人演示"、"presentation"、"slides"、"deck"、"pitch deck"、"路演"、"杂志风 PPT"、"侘寂风 PPT"、"Riso PPT"、"Y2K PPT"、"科技蓝 PPT"、"按这个模板生成 PPT" 时调用。
 ---
 
 # gpt-image2-ppt — 用 gpt-image-2 生成 PPT
 
 把一份 markdown 大纲（或 `slides_plan.json`）+ 一种视觉风格，直接喂给 OpenAI 官方 Images API（`gpt-image-2`），逐页出图，最后拼成一个键盘可翻页的 HTML viewer + 16:9 .pptx。
 
-## 三种内置风格
+## 十种内置风格
 
-| 风格 | 适用场景 |
-| --- | --- |
-| `gradient-glass` | 科技产品、技术分享、创意提案 — 渐变玻璃 / 极光 / Bento 网格 |
-| `clean-tech-blue` | 融资路演、投资人演示、商业计划书 — 蓝白克制、McKinsey 感 |
-| `vector-illustration` | 教育培训、儿童内容、品牌故事 — 扁平矢量、复古配色 |
+| 风格 ID | 一句话定位 | 适用场景 |
+| --- | --- | --- |
+| `gradient-glass` | Apple Vision OS / Spatial Glass | AI 产品发布、技术分享、创意提案 |
+| `clean-tech-blue` | Stripe / Linear 级蓝白 | 融资路演、商业计划书、企业战略 |
+| `vector-illustration` | 复古矢量插画 + 黑描边 | 教育培训、品牌故事、社区分享 |
+| `editorial-mono` | Kinfolk / Monocle 编辑设计 | 品牌发布、文化访谈、读书分享 |
+| `dark-aurora` | Linear / Vercel 深色霓虹 | AI 产品、开发者工具、技术分享 |
+| `risograph` | Riso 双套色印刷 + 网点纹理 | 创意工作室、文创品牌、独立 zine |
+| `japanese-wabi` | 无印 / 原研哉式侘寂 | 茶道、生活方式、奢侈品、文化讲座 |
+| `swiss-grid` | Bauhaus / Vignelli 国际主义网格 | 学术报告、博物馆展陈、严肃汇报 |
+| `hand-sketch` | Sketchnote / 白板手绘 | 工作坊、产品 brainstorming、培训 |
+| `y2k-chrome` | Y2K 千禧液态金属 + 蝴蝶贴纸 | 潮牌、文娱、品牌联名、Z 世代营销 |
+
+> 风格选择原则：技术类首选 `dark-aurora` / `gradient-glass`，商务类首选 `clean-tech-blue` / `editorial-mono`，文化生活类首选 `japanese-wabi` / `vector-illustration`，潮文娱类首选 `risograph` / `y2k-chrome`，学术类首选 `swiss-grid`，工作坊与早期创意类首选 `hand-sketch`。
 
 ## 模板克隆模式
 
@@ -96,10 +105,10 @@ VISION_MODEL_NAME=gemini-3.1-pro-preview
      ]
    }
    ```
-3. 选风格：`styles/gradient-glass.md` / `styles/clean-tech-blue.md` / `styles/vector-illustration.md`
+3. 选风格：从上面 10 套里挑一个，对应 `styles/<id>.md`
 4. 调脚本：
    ```bash
-   python3 generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md
+   python3 generate_ppt.py --plan slides_plan.json --style styles/editorial-mono.md
    ```
 5. 产物在 `<cwd>/outputs/<timestamp>/`：
    - `images/slide-XX.png` — 每页 PNG（16:9，1536×1024）
@@ -129,7 +138,7 @@ VISION_MODEL_NAME=gemini-3.1-pro-preview
 
 1. **先问三件事**（不要直接动手）：
    - 内容 / 页数 / 观众是谁？
-   - 风格偏好？默认推荐：技术分享 → `gradient-glass`，路演 → `clean-tech-blue`，教育 → `vector-illustration`；**或者用户上传自己的 .pptx 模板**（走 `--template-pptx`，自动渲染）
+   - 风格偏好？按"十种内置风格"表的场景类目映射推荐 1–2 个；**或者用户上传自己的 .pptx 模板**（走 `--template-pptx`，自动渲染）
    - 是否需要单页测试一张图先看效果（`--slides 1`）
 2. **生成 slides_plan.json**
 3. **跑 generate_ppt.py**，先 `--slides 1` 出封面冒烟，效果 OK 再跑全量
@@ -138,7 +147,7 @@ VISION_MODEL_NAME=gemini-3.1-pro-preview
 ## 仅生成部分页
 
 ```bash
-python3 generate_ppt.py --plan my_plan.json --style styles/gradient-glass.md --slides 1,3,5
+python3 generate_ppt.py --plan my_plan.json --style styles/dark-aurora.md --slides 1,3,5
 ```
 
 跑过的页有同名 PNG 时会自动跳过，方便逐页迭代。
@@ -154,7 +163,12 @@ gpt-image2-ppt-skills/
 ├── image_generator.py      # gpt-image-2 wrapper（支持 reference image）
 ├── template_analyzer.py    # PPT 模板剖析器（vision + 缓存）
 ├── slides_plan.json        # 示例 plan（10 页商业计划书）
-├── styles/                 # 三种内置风格
+├── styles/                 # 10 套内置风格
+│   ├── gradient-glass.md           dark-aurora.md
+│   ├── clean-tech-blue.md          risograph.md
+│   ├── vector-illustration.md      japanese-wabi.md
+│   ├── editorial-mono.md           swiss-grid.md
+│   ├── hand-sketch.md              y2k-chrome.md
 ├── templates/viewer.html   # HTML viewer 模板
 ├── install_as_skill.sh     # 一键安装到 ~/.claude/skills/
 ├── requirements.txt        # requests + python-dotenv + python-pptx + jsonschema + pymupdf

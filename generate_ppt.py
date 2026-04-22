@@ -114,35 +114,32 @@ def generate_prompt(
     slide_number: int,
     total_slides: int,
 ) -> str:
-    """Generate a complete prompt for a single slide."""
-    prompt_parts = [style_template, "\n\n"]
+    """Generate a complete prompt for a single slide.
 
+    Per-page composition rules live inside each style's `## 基础提示词模板`
+    (cover / content / data sub-blocks); this function只在尾部追加一个中性的
+    page_type 提示，让模型按本风格自己的规范处理。
+    """
     is_cover = page_type == "cover" or slide_number == 1
     is_data = page_type == "data" or slide_number == total_slides
-
     if is_cover:
-        prompt_parts.append(
-            f"""请根据视觉平衡美学，生成封面页。在中心放置一个巨大的复杂3D玻璃物体，并覆盖粗体大字：
-
-{content_text}
-
-背景有延伸的极光波浪。"""
-        )
+        label = "封面页（cover）"
+        hint = "标题/副标题处理为视觉焦点，按本风格的封面构图规范处理。"
     elif is_data:
-        prompt_parts.append(
-            f"""请生成数据页或总结页。使用分屏设计，左侧排版以下文字，右侧悬浮巨大的发光3D数据可视化图表：
-
-{content_text}"""
-        )
+        label = "数据页（data）"
+        hint = "突出关键数字、对比或结论；按本风格的数据/总结构图规范处理。"
     else:
-        prompt_parts.append(
-            f"""请生成内容页。使用Bento网格布局，将以下内容组织在模块化的圆角矩形容器中，容器材质必须是带有模糊效果的磨砂玻璃：
+        label = "内容页（content）"
+        hint = "把要点按本风格的内容构图规范结构化呈现，注意层级、对齐、留白。"
 
-{content_text}"""
-        )
-
-    prompt_parts.append(LANGUAGE_FONT_RULE)
-    return "".join(prompt_parts)
+    return (
+        style_template
+        + "\n\n---\n\n"
+        + f"现在请生成本组中的【{label}】，{hint}\n"
+        + "本页要呈现的内容如下（请按本风格美学重新设计版式，不要原样照搬文本节奏）：\n\n"
+        + content_text
+        + LANGUAGE_FONT_RULE
+    )
 
 
 # =============================================================================

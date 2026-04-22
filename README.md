@@ -4,9 +4,9 @@
 
 ## ✨ 特性
 
-- 🎨 **三种内置风格**：渐变玻璃（gradient-glass）/ 清爽科技蓝（clean-tech-blue）/ 矢量插画（vector-illustration）
-- 🪄 **模板克隆模式**：传一个 .pptx + 每页 PNG，vision 抽风格 + JSON Schema，新内容仿这个模板出图
-- 🤖 **官方 OpenAI Images API**：`POST /v1/chat/completions`，模型 `gpt-image-2`
+- 🎨 **十套精选风格**：渐变玻璃 / 蓝白科技 / 矢量插画 / 黑白杂志 / 深色霓虹 / Riso 印刷 / 日式侘寂 / 瑞士网格 / 手绘草稿 / Y2K 金属，每套都有 cover/content/data 三种构图规范
+- 🪄 **模板克隆模式**：传一个 .pptx，自动渲染 + vision 抽风格 + JSON Schema，新内容仿这个模板出图
+- 🤖 **官方 OpenAI Images API**：模型 `gpt-image-2`
 - 🔄 **OpenAI 兼容**：base_url 可换成任何兼容中转站
 - 🖼️ **16:9 高清 PPT**：默认 1536×1024，`quality=high`
 - 🎮 **HTML viewer**：键盘翻页、空格自动播放、ESC 全屏、触摸滑动
@@ -117,13 +117,22 @@ outputs/20260422_153012/
 └── prompts.json     # 每页完整 prompt，方便复盘
 ```
 
-## 🎨 风格对比
+## 🎨 十种内置风格
 
-| 风格 ID | 适用 | 关键词 |
+| 风格 ID | 一句话定位 | 适用场景 |
 | --- | --- | --- |
-| `gradient-glass` | 科技产品、技术分享 | 渐变 / 极光 / 玻璃拟态 / Bento 网格 / 3D 物体 |
-| `clean-tech-blue` | 融资路演、投资人演示 | 蓝白 / 克制 / McKinsey / 网格对齐 |
-| `vector-illustration` | 教育培训、儿童内容 | 扁平矢量 / 黑色描边 / 复古配色 / 米色纸张 |
+| `gradient-glass` | Apple Vision OS / Spatial Glass | AI 产品发布、技术分享、创意提案 |
+| `clean-tech-blue` | Stripe / Linear 级蓝白 | 融资路演、商业计划书、企业战略 |
+| `vector-illustration` | 复古矢量插画 + 黑描边 | 教育培训、品牌故事、社区分享 |
+| `editorial-mono` | Kinfolk / Monocle 编辑设计 | 品牌发布、文化访谈、读书分享 |
+| `dark-aurora` | Linear / Vercel 深色霓虹 | AI 产品、开发者工具、技术分享 |
+| `risograph` | Riso 双套色印刷 + 网点纹理 | 创意工作室、文创品牌、独立 zine |
+| `japanese-wabi` | 无印 / 原研哉式侘寂 | 茶道、生活方式、奢侈品、文化讲座 |
+| `swiss-grid` | Bauhaus / Vignelli 国际主义网格 | 学术报告、博物馆展陈、严肃汇报 |
+| `hand-sketch` | Sketchnote / 白板手绘 | 工作坊、产品 brainstorming、培训 |
+| `y2k-chrome` | Y2K 千禧液态金属 + 蝴蝶贴纸 | 潮牌、文娱、品牌联名、Z 世代营销 |
+
+每个风格的完整 prompt 见 `styles/<id>.md`，按 cover / content / data 三种构图分别给出版式规范。
 
 ## 🛠️ 在 Claude ​Code 里调用
 
