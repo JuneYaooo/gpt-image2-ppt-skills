@@ -47,7 +47,7 @@ Claude Code / OpenClaw Skill。装进 agent 后，用一句自然语言生成 16
 
 ## 🎨 十种内置风格
 
-> 下图为 10 套风格在同一主题「**如何用 gpt-image-2 做 PPT**」下各生成一张封面的对照。全部由 `gpt-image-2` 直出，未经 PS。复现脚本见 [`scripts/generate_style_gallery.py`](scripts/generate_style_gallery.py)。
+> 下图为 10 套风格在同一主题「**如何用 gpt-image-2 做 PPT**」下各生成一张封面的对照。全部由 `gpt-image-2` 直出，未经 PS。
 
 ![10 种风格封面对照 · 同一主题直出](docs/assets/style-gallery.jpg)
 

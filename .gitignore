@@ -213,3 +213,4 @@ template_renders/
 .env
 tmp_*
 docs/assets/gallery/
+scripts/generate_style_gallery.py
