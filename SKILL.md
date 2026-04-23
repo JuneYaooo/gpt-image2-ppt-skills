@@ -238,8 +238,6 @@ gpt-image2-ppt-skills/
 |---- image_generator.py      # gpt-image-2 wrapper（支持 reference image，openai backend）
 |---- codex_backend.py        # 可选：走 codex CLI 出图（--backend codex）
 |---- template_analyzer.py    # PPT 模板剖析器（vision + 缓存）
-|---- slides_plan.md          # 示例 plan（md 源稿，人审阅友好）
-|---- slides_plan.json        # 示例 plan（从 md 派生，10 页商业计划书）
 |---- styles/                 # 10 套内置风格
 |   |---- gradient-glass.md           dark-aurora.md
 |   |---- clean-tech-blue.md          risograph.md
