@@ -212,3 +212,4 @@ template_cache/
 template_renders/
 .env
 tmp_*
+docs/assets/gallery/
