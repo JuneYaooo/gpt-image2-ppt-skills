@@ -64,6 +64,19 @@ Claude Code / OpenClaw Skill。装进 agent 后，用一句自然语言生成 16
 
 ## 🚀 安装
 
+### 方式一：让 AI 自己装（推荐）
+
+把下面这段 prompt 丢给你的 AI 助手（Claude Code / OpenClaw / Codex / Cursor / Trae / Hermes Agent 都行），它会自动完成安装：
+
+```
+帮我安装 gpt-image2-ppt-skills：
+https://raw.githubusercontent.com/JuneYaooo/gpt-image2-ppt-skills/main/docs/install.md
+```
+
+agent 会自己 clone 仓库、跑安装脚本、问你要 API key、提示你重启。
+
+### 方式二：手动安装
+
 ```bash
 git clone git@github.com:JuneYaooo/gpt-image2-ppt-skills.git
 cd gpt-image2-ppt-skills
