@@ -34,11 +34,13 @@ OPENAI_API_KEY=sk-...                     # 必需
 GPT_IMAGE_MODEL_NAME=gpt-image-2          # 默认 gpt-image-2
 GPT_IMAGE_QUALITY=high                    # low / medium / high / auto
 
-# 可选：仅模板克隆模式需要（vision 分析独立 provider）。
+# 可选：仅模板克隆模式需要，且仅当调用本 skill 的 agent 不是多模态时才配。
+# 多模态 agent (Claude Code / codex 等) 可以直接 Read template_renders 里的 PNG
+# 自己抽风格，不用外挂；此时这三项留空即可。
 # 不内置默认 endpoint，请填你自己信任的服务，否则就别启用 VISION_*。
 # VISION_BASE_URL=https://your-openai-compatible-relay.example.com/v1
 # VISION_API_KEY=sk-...
-# VISION_MODEL_NAME=gemini-3.1-pro-preview
+# VISION_MODEL_NAME=gemini-3.1-pro-preview   # 或 gpt-4o / claude-3.5-sonnet 等任意多模态 SKU
 ```
 
 > 安全：脚本只从 `<script_dir>/.env`、`~/.claude/skills/.../env`、`~/skills/.../env` 或显式 `GPT_IMAGE2_PPT_ENV` 加载，**不会**向上递归读取项目目录的 `.env`，避免误吃无关密钥。
@@ -97,7 +99,7 @@ python3 generate_ppt.py ... --rebuild-template-cache
 
 不传 `--template-images` 时会自动调 `render_template.py`，按优先级：本机 `libreoffice` -> 本机 docker 跑 `linuxserver/libreoffice` -> 报错让用户手工导出 PNG。PDF -> PNG 走 `pymupdf`（已在 requirements）。
 
-第一次跑 vision 会调 `gemini-3.1-pro-preview`（在 `.env` 的 `VISION_*` 里配），输出每页的 `summary` + `json_schema` 缓存到 `template_cache/`。后续同一模板秒匹配。
+第一次跑 vision 分析时,优先让调用本 skill 的 agent 自己看 `template_renders/<stem>/page-*.png` 并把结构化结果写进 `template_cache/<sha256>.json`(Claude Code / codex 这类多模态 agent 开箱即可);只有 agent 本身是纯文本模型时才回落到 `VISION_*` 配置的外部多模态端点(Gemini / GPT / Claude 任选)。后续同一模板秒匹配。
 
 #### 渲染中间产物落盘
 

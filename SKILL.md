@@ -66,7 +66,12 @@ python3 render_template.py company-template.pptx
 
 三者都在调用者 cwd 下，与项目自然同进退；建议把 `template_renders/`、`template_cache/`、`outputs/` 加进项目的 `.gitignore`。
 
-**vision 模型**：模板分析走单独的 OpenAI 兼容多模态 chat completions（默认 `gemini-3.1-pro-preview`，配在 `.env` 的 `VISION_*` 里），与图片生成的 `gpt-image-2` 解耦。
+**vision 模型(让 agent 自己判断要不要配)**：
+
+- **如果当前运行本 skill 的 agent 自己就是多模态的**（Claude Code 走 Claude Opus/Sonnet 等多模态 SKU、codex 走 GPT 多模态 SKU 等），**压根不用外挂 vision 模型**：直接让 agent 自己 `Read` `template_renders/<stem>/page-*.png`，一次把风格抽出来写进 `template_cache/<sha256>.json` 即可(schema 见 `template_analyzer.py`)。这是默认路径,不需要配 `VISION_*`。
+- **只有 agent 本身是纯文本模型**(或你想强制用某个更强的 vision 做模板分析)，才去配 `VISION_*` 让 `template_analyzer.py` 走一个独立的 OpenAI 兼容多模态 chat completions 端点(Gemini / GPT / Claude 任选,不内置 default)。
+
+vision 分析与图片生成的 `gpt-image-2` 永远解耦——换 vision provider 不影响出图路径。
 
 ## 安装
 
@@ -85,18 +90,20 @@ OPENAI_API_KEY=sk-...
 GPT_IMAGE_MODEL_NAME=gpt-image-2
 GPT_IMAGE_QUALITY=high                     # low / medium / high / auto
 
-# 可选：模板克隆模式才需要（vision 分析独立 provider）。
-# 不内置默认 endpoint，请填你自己信任的服务，否则就别填这一组。
+# 可选：模板克隆模式的 vision 分析 backend。
+# 默认让调用本 skill 的 agent 自己看图（多模态 Claude Code / 多模态 codex 皆可）,
+# 只有 agent 本身是纯文本模型时才需要外挂下面这组。
+# 不内置默认 endpoint，请填你自己信任的服务,否则就别填。
 # VISION_BASE_URL=https://your-openai-compatible-relay.example.com/v1
 # VISION_API_KEY=sk-...
-# VISION_MODEL_NAME=gemini-3.1-pro-preview
+# VISION_MODEL_NAME=gemini-3.1-pro-preview   # 或 gpt-4o / claude-3.5-sonnet 等任意多模态 SKU
 ```
 
 > **安全提示**：脚本只从 `<script_dir>/.env`、`~/.claude/skills/.../env`、`~/skills/.../env` 与显式 `GPT_IMAGE2_PPT_ENV` 加载凭据，**不会**向上递归读取项目目录里的 `.env`，避免误吃无关密钥。
 
-## 可选：走本地 codex CLI 出图（无需配 OPENAI_API_KEY）
+## 可选：走 codex 自带的多模态 + 出图能力（无需配 OPENAI_API_KEY）
 
-如果本机已经装好并登录了 [OpenAI Codex CLI](https://github.com/openai/codex)（`codex login` 过），可以让本 skill 把图片生成派发给 codex，复用它的凭据，不必在本 skill 的 `.env` 里填 `OPENAI_API_KEY`：
+[OpenAI Codex](https://github.com/openai/codex) 本身就是多模态 agent——它自己就能看图、出图，不需要我们再外挂 vision / image provider。如果本机已经装好并登录了 codex (`codex login` 过)，可以让本 skill 把**图片生成**这一步派给 codex，复用它的凭据：
 
 ```bash
 python3 generate_ppt.py --plan slides_plan.json --style styles/editorial-mono.md --backend codex
@@ -119,7 +126,7 @@ CODEX_TIMEOUT_SECS=900               # 单页超时
 GPT_IMAGE_BACKEND=codex              # 不想每次敲 --backend 就设这个
 ```
 
-模板克隆的 vision 分析目前仍走 `VISION_*` 配置，未并入 codex backend。
+模板克隆的 vision 分析同理——codex 作为 agent 运行本 skill 时可以自己 `Read` 模板 PNG，不需要再配 `VISION_*`；只有把 codex 当纯出图后端、而 caller agent 又是纯文本模型时，才需要配 `VISION_*`。
 
 ## 生成流程（内置风格）
 
