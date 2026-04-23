@@ -94,26 +94,69 @@ GPT_IMAGE_QUALITY=high                     # low / medium / high / auto
 
 > **安全提示**：脚本只从 `<script_dir>/.env`、`~/.claude/skills/.../env`、`~/skills/.../env` 与显式 `GPT_IMAGE2_PPT_ENV` 加载凭据，**不会**向上递归读取项目目录里的 `.env`，避免误吃无关密钥。
 
+## 可选：走本地 codex CLI 出图（无需配 OPENAI_API_KEY）
+
+如果本机已经装好并登录了 [OpenAI Codex CLI](https://github.com/openai/codex)（`codex login` 过），可以让本 skill 把图片生成派发给 codex，复用它的凭据，不必在本 skill 的 `.env` 里填 `OPENAI_API_KEY`：
+
+```bash
+python3 generate_ppt.py --plan slides_plan.json --style styles/editorial-mono.md --backend codex
+```
+
+默认后端仍是 `openai`（直调 API，快、并发稳、每页 3-10s）。`--backend codex` 是逃生口，适合"只跑 1-2 张图试水、不想配 key"的场景。
+
+**Tradeoffs**：
+- ✅ 不需要在本 skill 配 `OPENAI_API_KEY`
+- ⚠️ 慢：每页多一层 agent loop，单页 30-60s+，10 页可能 5-10 分钟
+- ⚠️ 计费不变：gpt-image-2 是按图计费，不在 ChatGPT 订阅内，codex 只是代你刷额度
+- ⚠️ 可控性差：aspect_ratio / quality / reference_image 靠自然语言指令让 codex 转发，偶发失败
+
+相关 env（都可选）：
+
+```bash
+CODEX_CMD="codex exec --full-auto"   # 覆盖 codex 调用方式（默认这串）
+CODEX_IMAGE_MODEL=gpt-image-2        # 传给 codex 的目标模型
+CODEX_TIMEOUT_SECS=900               # 单页超时
+GPT_IMAGE_BACKEND=codex              # 不想每次敲 --backend 就设这个
+```
+
+模板克隆的 vision 分析目前仍走 `VISION_*` 配置，未并入 codex backend。
+
 ## 生成流程（内置风格）
 
+**先 md 后 json**：md 给人看、方便 diff / review / 改文案；json 由 md 派生，喂给 `generate_ppt.py`，标为 generated，不手改。
+
 1. 用户给一份大纲 / 已有的 slides_plan.json
-2. Claude 读懂内容，按需要生成 / 校准 `slides_plan.json`：
-   ```json
-   {
-     "title": "...",
-     "slides": [
-       {"slide_number": 1, "page_type": "cover",   "content": "标题 / 副标题"},
-       {"slide_number": 2, "page_type": "content", "content": "正文要点..."},
-       {"slide_number": 3, "page_type": "data",    "content": "数据 / 总结..."}
-     ]
-   }
+2. Claude 按下面 md 规范写一份 `slides_plan.md`，与用户确认文案：
+   ````markdown
+   ---
+   title: MediWise Health Suite 商业计划书
+   ---
+
+   ## 1. [cover] MediWise Health Suite
+   副标题：家庭健康管理智能平台
+   年份：2026
+
+   ## 2. [content] 市场痛点：健康管理的两类割裂
+   痛点一：高频无深度
+   ...
+
+   ## 6. [data] 效率对比：使用 MediWise 前后
+   ...
+   ````
+   - h2 格式：`## N. [page_type, layout=layout-05] 本页标题行`
+   - `N.` 可省（按出现顺序自动编号）；`[page_type]` 可省（默认 `content`）；`layout=` 只在模板克隆模式需要
+   - `page_type`: `cover` / `content` / `data`
+   - h2 标题行 → json 里 `content` 的第一行；下面的正文 → 正文
+3. 用户 OK 后，转 json：
+   ```bash
+   python3 md_to_plan.py slides_plan.md -o slides_plan.json
    ```
-3. 选风格：从上面 10 套里挑一个，对应 `styles/<id>.md`
-4. 调脚本：
+4. 选风格：从上面 10 套里挑一个，对应 `styles/<id>.md`
+5. 调脚本：
    ```bash
    python3 generate_ppt.py --plan slides_plan.json --style styles/editorial-mono.md
    ```
-5. 产物在 `<cwd>/outputs/<timestamp>/`：
+6. 产物在 `<cwd>/outputs/<timestamp>/`：
    - `images/slide-XX.png` -- 每页 PNG（16:9，1536x1024）
    - `index.html` -- HTML viewer，方向键翻页、空格自动播放、ESC 全屏
    - `prompts.json` -- 每页用到的完整 prompt（便于复盘 / 二次微调）
@@ -123,7 +166,7 @@ GPT_IMAGE_QUALITY=high                     # low / medium / high / auto
 
 1. **拿到模板 .pptx**（用户提供 / 内部模板库 / 网络下载）
 2. **（可选）先单独渲染并人工挑选**----大模板（>15 页）建议先 `python3 render_template.py xxx.pptx`，再从 `template_renders/<stem>/` 里挑 8-12 张代表页复制到 `template_renders/<stem>_curated/`，供 vision 分析。页数越精，layout 命中越准
-3. **生成 slides_plan.json**：每页 `slide_number` / `page_type` (`cover` / `content` / `data` / 等) / `content`；想精准对位时加 `layout_id`，命名按 `layout-NN`（NN = 模板第 N 页 / 你期望对应的模板页编号）
+3. **生成 slides_plan.md → 转 slides_plan.json**（见内置风格流程第 2-3 步）。每页 `slide_number` / `page_type` (`cover` / `content` / `data` / 等) / `content`；想精准对位时在 h2 里加 `layout=layout-NN`（NN = 模板第 N 页 / 你期望对应的模板页编号）
 4. **跑 generate_ppt.py**：
    ```bash
    python3 generate_ppt.py \
@@ -162,9 +205,10 @@ Claude 在搭 plan 时的执行策略：
    - 内容 / 页数 / 观众是谁？
    - 风格偏好？按"十种内置风格"表的场景类目映射推荐 1-2 个；**或者用户上传自己的 .pptx 模板**（走 `--template-pptx`，自动渲染）
    - 是否需要单页测试一张图先看效果（`--slides 1`）
-2. **生成 slides_plan.json**
-3. **跑 generate_ppt.py**，先 `--slides 1` 出封面冒烟，效果 OK 再跑全量
-4. **告知用户产物路径**，让他在浏览器打开 `outputs/<timestamp>/index.html` 或者 `<title>.pptx`
+2. **先写 slides_plan.md** 给用户确认文案（md 是 source of truth，人审阅友好）
+3. **转 slides_plan.json**：`python3 md_to_plan.py slides_plan.md -o slides_plan.json`（json 标为 generated，不手改；要改文案回到 md 改再转）
+4. **跑 generate_ppt.py**，先 `--slides 1` 出封面冒烟，效果 OK 再跑全量
+5. **告知用户产物路径**，让他在浏览器打开 `outputs/<timestamp>/index.html` 或者 `<title>.pptx`
 
 ## 仅生成部分页
 
@@ -178,13 +222,17 @@ python3 generate_ppt.py --plan my_plan.json --style styles/dark-aurora.md --slid
 
 ```
 gpt-image2-ppt-skills/
-|---- SKILL.md                # 本文件
+|---- SKILL.md                # 本文件（Claude Code skill 入口）
+|---- AGENTS.md               # codex / aider / cursor 等 agent 的薄索引，指向本文件
 |---- README.md               # 项目说明
 |---- generate_ppt.py         # 主入口（CLI）
+|---- md_to_plan.py           # slides_plan.md -> slides_plan.json 转换器（CLI）
 |---- render_template.py      # PPTX -> 每页 PNG 的辅助脚本（CLI + library）
-|---- image_generator.py      # gpt-image-2 wrapper（支持 reference image）
+|---- image_generator.py      # gpt-image-2 wrapper（支持 reference image，openai backend）
+|---- codex_backend.py        # 可选：走 codex CLI 出图（--backend codex）
 |---- template_analyzer.py    # PPT 模板剖析器（vision + 缓存）
-|---- slides_plan.json        # 示例 plan（10 页商业计划书）
+|---- slides_plan.md          # 示例 plan（md 源稿，人审阅友好）
+|---- slides_plan.json        # 示例 plan（从 md 派生，10 页商业计划书）
 |---- styles/                 # 10 套内置风格
 |   |---- gradient-glass.md           dark-aurora.md
 |   |---- clean-tech-blue.md          risograph.md
