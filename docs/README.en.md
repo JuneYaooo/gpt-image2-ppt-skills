@@ -182,7 +182,7 @@ The agent will:
 
 ## 🙏 Acknowledgements
 
-- [op7418/NanoBanana-PPT-Skills](https://github.com/op7418/NanoBanana-PPT-Skills) -- original style prompts + viewer; this project swaps the image backend from Nano Banana Pro to OpenAI gpt-image-2 and rewrites all 3 inherited styles + adds 7 new ones.
+- [op7418/NanoBanana-PPT-Skills](https://github.com/op7418/NanoBanana-PPT-Skills) -- original style prompts + viewer. This project swaps the image backend from Nano Banana Pro to OpenAI gpt-image-2, rewrites the 3 inherited styles and adds 7 new ones (10 total), plus new features: template-clone mode (vision-based style extraction from any user `.pptx`), md-first authoring flow, automatic `.pptx` packaging, and a codex CLI fallback backend.
 - [lewislulu/html-ppt-skill](https://github.com/lewislulu/html-ppt-skill) -- reference for Claude Code skill SKILL.md frontmatter.
 
 ## License

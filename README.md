@@ -161,7 +161,7 @@ Claude 会：
 
 ## 🙏 致谢
 
-- [op7418/NanoBanana-PPT-Skills](https://github.com/op7418/NanoBanana-PPT-Skills) -- 风格 prompts 与 viewer 模板的原始作者，本项目把图片后端从 Nano Banana Pro 换成了 OpenAI gpt-image-2。
+- [op7418/NanoBanana-PPT-Skills](https://github.com/op7418/NanoBanana-PPT-Skills) -- 风格 prompts 与 viewer 模板的原始作者。本项目把图片后端从 Nano Banana Pro 换成了 OpenAI gpt-image-2，重写了继承自上游的 3 套风格并新增 7 套（共 10 套），另加入模板克隆模式（vision 抽风格仿任意 .pptx）、md-first 编排流程、.pptx 自动打包、codex CLI 备用后端等新功能。
 - [lewislulu/html-ppt-skill](https://github.com/lewislulu/html-ppt-skill) -- Claude Code skill SKILL.md frontmatter 写法参考。
 
 ## License
