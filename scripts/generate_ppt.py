@@ -288,8 +288,8 @@ def create_argument_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Example usage:
-  python generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md
-  python generate_ppt.py --plan slides_plan.json --style styles/clean-tech-blue.md --slides 1,3,5
+  python scripts/generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md
+  python scripts/generate_ppt.py --plan slides_plan.json --style styles/clean-tech-blue.md --slides 1,3,5
 
 Environment variables (set in .env file):
   OPENAI_BASE_URL:        Images API base URL (default: https://api.openai.com)

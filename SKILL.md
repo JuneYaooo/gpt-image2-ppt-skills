@@ -30,7 +30,7 @@ description: Generate visually striking PPT slides via OpenAI's gpt-image-2 -- 1
 
 ```bash
 # 一行：自动渲染 + vision 抽风格 + 出图。本机有 LibreOffice 或 docker 镜像即可
-python3 generate_ppt.py \
+python3 scripts/generate_ppt.py \
   --plan slides_plan.json \
   --template-pptx ./company-template.pptx \
   --template-strict
@@ -52,7 +52,7 @@ skill 自带 `render_template.py`，把 .pptx 自动渲染成每页 PNG，存到
 跑 `generate_ppt.py --template-pptx ...` 时如果省略 `--template-images` 会自动调一次渲染；也可以手动先跑一次：
 
 ```bash
-python3 render_template.py company-template.pptx
+python3 scripts/render_template.py company-template.pptx
 # -> <cwd>/template_renders/company_template/page-01.png ... page-NN.png
 ```
 
@@ -106,7 +106,7 @@ GPT_IMAGE_QUALITY=high                     # low / medium / high / auto
 [OpenAI Codex](https://github.com/openai/codex) 本身就是多模态 agent——它自己就能看图、出图，不需要我们再外挂 vision / image provider。如果本机已经装好并登录了 codex (`codex login` 过)，可以让本 skill 把**图片生成**这一步派给 codex，复用它的凭据：
 
 ```bash
-python3 generate_ppt.py --plan slides_plan.json --style styles/editorial-mono.md --backend codex
+python3 scripts/generate_ppt.py --plan slides_plan.json --style styles/editorial-mono.md --backend codex
 ```
 
 默认后端仍是 `openai`（直调 API，快、并发稳、每页 3-10s）。`--backend codex` 是逃生口，适合"只跑 1-2 张图试水、不想配 key"的场景。
@@ -156,12 +156,12 @@ GPT_IMAGE_BACKEND=codex              # 不想每次敲 --backend 就设这个
    - h2 标题行 → json 里 `content` 的第一行；下面的正文 → 正文
 3. 用户 OK 后，转 json：
    ```bash
-   python3 md_to_plan.py slides_plan.md -o slides_plan.json
+   python3 scripts/md_to_plan.py slides_plan.md -o slides_plan.json
    ```
 4. 选风格：从上面 10 套里挑一个，对应 `styles/<id>.md`
 5. 调脚本：
    ```bash
-   python3 generate_ppt.py --plan slides_plan.json --style styles/editorial-mono.md
+   python3 scripts/generate_ppt.py --plan slides_plan.json --style styles/editorial-mono.md
    ```
 6. 产物在 `<cwd>/outputs/<timestamp>/`：
    - `images/slide-XX.png` -- 每页 PNG（16:9，1536x1024）
@@ -172,11 +172,11 @@ GPT_IMAGE_BACKEND=codex              # 不想每次敲 --backend 就设这个
 ## 生成流程（模板克隆）
 
 1. **拿到模板 .pptx**（用户提供 / 内部模板库 / 网络下载）
-2. **（可选）先单独渲染并人工挑选**----大模板（>15 页）建议先 `python3 render_template.py xxx.pptx`，再从 `template_renders/<stem>/` 里挑 8-12 张代表页复制到 `template_renders/<stem>_curated/`，供 vision 分析。页数越精，layout 命中越准
+2. **（可选）先单独渲染并人工挑选**----大模板（>15 页）建议先 `python3 scripts/render_template.py xxx.pptx`，再从 `template_renders/<stem>/` 里挑 8-12 张代表页复制到 `template_renders/<stem>_curated/`，供 vision 分析。页数越精，layout 命中越准
 3. **生成 slides_plan.md → 转 slides_plan.json**（见内置风格流程第 2-3 步）。每页 `slide_number` / `page_type` (`cover` / `content` / `data` / 等) / `content`；想精准对位时在 h2 里加 `layout=layout-NN`（NN = 模板第 N 页 / 你期望对应的模板页编号）
 4. **跑 generate_ppt.py**：
    ```bash
-   python3 generate_ppt.py \
+   python3 scripts/generate_ppt.py \
      --plan slides_plan.json \
      --template-pptx xxx.pptx \
      --template-images template_renders/xxx_curated \
@@ -213,14 +213,14 @@ Claude 在搭 plan 时的执行策略：
    - 风格偏好？按"十种内置风格"表的场景类目映射推荐 1-2 个；**或者用户上传自己的 .pptx 模板**（走 `--template-pptx`，自动渲染）
    - 是否需要单页测试一张图先看效果（`--slides 1`）
 2. **先写 slides_plan.md** 给用户确认文案（md 是 source of truth，人审阅友好）
-3. **转 slides_plan.json**：`python3 md_to_plan.py slides_plan.md -o slides_plan.json`（json 标为 generated，不手改；要改文案回到 md 改再转）
+3. **转 slides_plan.json**：`python3 scripts/md_to_plan.py slides_plan.md -o slides_plan.json`（json 标为 generated，不手改；要改文案回到 md 改再转）
 4. **跑 generate_ppt.py**，先 `--slides 1` 出封面冒烟，效果 OK 再跑全量
 5. **告知用户产物路径**，让他在浏览器打开 `outputs/<timestamp>/index.html` 或者 `<title>.pptx`
 
 ## 仅生成部分页
 
 ```bash
-python3 generate_ppt.py --plan my_plan.json --style styles/dark-aurora.md --slides 1,3,5
+python3 scripts/generate_ppt.py --plan my_plan.json --style styles/dark-aurora.md --slides 1,3,5
 ```
 
 跑过的页有同名 PNG 时会自动跳过，方便逐页迭代。
@@ -232,12 +232,13 @@ gpt-image2-ppt-skills/
 |---- SKILL.md                # 本文件（Claude Code skill 入口）
 |---- AGENTS.md               # codex / aider / cursor 等 agent 的薄索引，指向本文件
 |---- README.md               # 项目说明
-|---- generate_ppt.py         # 主入口（CLI）
-|---- md_to_plan.py           # slides_plan.md -> slides_plan.json 转换器（CLI）
-|---- render_template.py      # PPTX -> 每页 PNG 的辅助脚本（CLI + library）
-|---- image_generator.py      # gpt-image-2 wrapper（支持 reference image，openai backend）
-|---- codex_backend.py        # 可选：走 codex CLI 出图（--backend codex）
-|---- template_analyzer.py    # PPT 模板剖析器（vision + 缓存）
+|---- scripts/                # 所有 Python 脚本
+|   |---- generate_ppt.py         # 主入口（CLI）
+|   |---- md_to_plan.py           # slides_plan.md -> slides_plan.json 转换器（CLI）
+|   |---- render_template.py      # PPTX -> 每页 PNG 的辅助脚本（CLI + library）
+|   |---- image_generator.py      # gpt-image-2 wrapper（支持 reference image，openai backend）
+|   |---- codex_backend.py        # 可选：走 codex CLI 出图（--backend codex）
+|   \---- template_analyzer.py    # PPT 模板剖析器（vision + 缓存）
 |---- styles/                 # 10 套内置风格
 |   |---- gradient-glass.md           dark-aurora.md
 |   |---- clean-tech-blue.md          risograph.md
@@ -245,6 +246,7 @@ gpt-image2-ppt-skills/
 |   |---- editorial-mono.md           swiss-grid.md
 |   |---- hand-sketch.md              y2k-chrome.md
 |---- templates/viewer.html   # HTML viewer 模板
+|---- docs/README.en.md       # 英文 README
 |---- install_as_skill.sh     # 一键安装到 ~/.claude/skills/
 |---- requirements.txt        # requests + python-dotenv + python-pptx + jsonschema + pymupdf
 \---- .env.example

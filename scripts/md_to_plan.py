@@ -27,8 +27,8 @@ Rules:
 - Trailing/leading blank lines inside a slide body are trimmed.
 
 Usage:
-    python3 md_to_plan.py slides_plan.md                     # -> slides_plan.json next to it
-    python3 md_to_plan.py slides_plan.md -o my_plan.json
+    python3 scripts/md_to_plan.py slides_plan.md                     # -> slides_plan.json next to it
+    python3 scripts/md_to_plan.py slides_plan.md -o my_plan.json
 """
 
 from __future__ import annotations

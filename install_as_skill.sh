@@ -109,7 +109,7 @@ main() {
     echo ""
     print_info "冒烟测试（可选）："
     print_info "  cd $SKILL_DIR"
-    print_info "  python3 generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md --slides 1"
+    print_info "  python3 scripts/generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md --slides 1"
     echo ""
 }
 

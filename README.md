@@ -2,7 +2,7 @@
 
 > 用 OpenAI 官方 `gpt-image-2` Images API 生成视觉风格强烈的 PPT 图片，自动产出可键盘翻页的 HTML viewer。Claude Code Skill / OpenClaw Skill。
 
-🌐 **English** > [README.en.md](./README.en.md)
+🌐 **English** > [docs/README.en.md](./docs/README.en.md)
 
 ## ✨ 特性
 
@@ -66,33 +66,33 @@ GPT_IMAGE_QUALITY=high                    # low / medium / high / auto
 
 ```bash
 # 全量生成
-python3 generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md
+python3 scripts/generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md
 
 # 只生成第 1 页（用来先验证 API 通）
-python3 generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md --slides 1
+python3 scripts/generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md --slides 1
 
 # 只重生第 3 和第 5 页
-python3 generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md --slides 3,5
+python3 scripts/generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md --slides 3,5
 ```
 
 ### 2.5 仿用户自己的 PPT 模板
 
 ```bash
 # 一行：自动渲染 + vision 抽风格 + 出图。本机有 LibreOffice 或 docker 镜像即可
-python3 generate_ppt.py \
+python3 scripts/generate_ppt.py \
   --plan slides_plan.json \
   --template-pptx ./company-template.pptx \
   --template-strict
 
 # 显式指定渲染目录（已经手动跑过 render_template.py 或自己导出过 PNG）
-python3 generate_ppt.py \
+python3 scripts/generate_ppt.py \
   --plan slides_plan.json \
   --template-pptx ./company-template.pptx \
   --template-images ./template_renders/company-template \
   --template-strict
 
 # 强制重跑 vision（默认会读 template_cache/<sha256>.json 缓存）
-python3 generate_ppt.py ... --rebuild-template-cache
+python3 scripts/generate_ppt.py ... --rebuild-template-cache
 ```
 
 `--template-strict` 表示每页都把模板对应页作为 image reference 传给 gpt-image-2，仿真度最高。

@@ -74,13 +74,13 @@ GPT_IMAGE_QUALITY=high                    # low / medium / high / auto
 
 ```bash
 # Full deck
-python3 generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md
+python3 scripts/generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md
 
 # Smoke test slide 1 only (cheap API check)
-python3 generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md --slides 1
+python3 scripts/generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md --slides 1
 
 # Re-render only slides 3 and 5
-python3 generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md --slides 3,5
+python3 scripts/generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md --slides 3,5
 ```
 
 ### 2.5 Clone the user's own .pptx template
@@ -88,20 +88,20 @@ python3 generate_ppt.py --plan slides_plan.json --style styles/gradient-glass.md
 ```bash
 # One-liner: auto-render + vision-analyse + image generation.
 # Needs LibreOffice locally OR docker with linuxserver/libreoffice
-python3 generate_ppt.py \
+python3 scripts/generate_ppt.py \
   --plan slides_plan.json \
   --template-pptx ./company-template.pptx \
   --template-strict
 
 # Explicit images dir (when you ran render_template.py manually or curated PNGs yourself)
-python3 generate_ppt.py \
+python3 scripts/generate_ppt.py \
   --plan slides_plan.json \
   --template-pptx ./company-template.pptx \
   --template-images ./template_renders/company-template \
   --template-strict
 
 # Force vision re-analysis (default reads template_cache/<sha256>.json)
-python3 generate_ppt.py ... --rebuild-template-cache
+python3 scripts/generate_ppt.py ... --rebuild-template-cache
 ```
 
 `--template-strict` passes the matching template page as an image reference to gpt-image-2 -> highest fidelity.

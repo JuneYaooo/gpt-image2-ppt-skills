@@ -4,8 +4,8 @@
 
 ## 一分钟索引
 
-- **主入口 CLI**：`python3 generate_ppt.py --plan slides_plan.json --style styles/<id>.md`
-- **内容源稿**：先写 `slides_plan.md`（人审阅），再 `python3 md_to_plan.py slides_plan.md -o slides_plan.json`；json 标为 derived，不手改
+- **主入口 CLI**：`python3 scripts/generate_ppt.py --plan slides_plan.json --style styles/<id>.md`
+- **内容源稿**：先写 `slides_plan.md`（人审阅），再 `python3 scripts/md_to_plan.py slides_plan.md -o slides_plan.json`；json 标为 derived，不手改
 - **十种内置风格**：见 `styles/` 目录 + `SKILL.md` 顶部表格
 - **模板克隆**：`--template-pptx path/to/xxx.pptx --template-strict`，vision 分析 + 缓存细节在 `SKILL.md` 的"模板克隆模式"一节；**如果你自己就是多模态 agent**(多模态 Claude / GPT / 等)，可以直接 `Read` `template_renders/<stem>/page-*.png` 自己抽风格写 `template_cache/<sha256>.json`，不用外挂 `VISION_*`
 - **冒烟策略**：先 `--slides 1` 出封面，确认后再跑全量
