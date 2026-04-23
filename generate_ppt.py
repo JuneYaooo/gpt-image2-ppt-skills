@@ -155,15 +155,24 @@ def generate_slide(
     slide_number: int,
     output_dir: str,
     reference_image_path: Optional[str] = None,
+    backend: str = "openai",
 ) -> Optional[str]:
-    """Generate a single PPT slide image using gpt-image-2."""
-    sys.path.insert(0, str(SCRIPT_DIR))
-    from image_generator import GptImage2Generator
+    """Generate a single PPT slide image using gpt-image-2.
 
-    print(f"  Generating slide {slide_number} via gpt-image-2 ...")
+    backend:
+      "openai" (default) -- direct /v1/images or /v1/chat calls, needs OPENAI_API_KEY
+      "codex"            -- shell out to `codex exec`, reuses codex CLI auth
+    """
+    sys.path.insert(0, str(SCRIPT_DIR))
+    if backend == "codex":
+        from codex_backend import CodexImageBackend as _Backend
+    else:
+        from image_generator import GptImage2Generator as _Backend
+
+    print(f"  Generating slide {slide_number} via {backend} backend ...")
 
     try:
-        generator = GptImage2Generator(aspect_ratio="16:9")
+        generator = _Backend(aspect_ratio="16:9")
         image_path = os.path.join(output_dir, "images", f"slide-{slide_number:02d}.png")
 
         scene_data = {
@@ -331,6 +340,13 @@ Environment variables (set in .env file):
         action="store_true",
         help="不生成 .pptx 文件（默认会自动打包成 16:9 PPTX）",
     )
+    parser.add_argument(
+        "--backend",
+        choices=["openai", "codex"],
+        default=os.getenv("GPT_IMAGE_BACKEND", "openai"),
+        help="图片生成后端：openai=直调 OpenAI API（需 OPENAI_API_KEY，默认）；"
+             "codex=走本地 codex CLI（复用 codex 登录，无需在本 skill 配 key，但更慢）",
+    )
 
     return parser
 
@@ -406,6 +422,7 @@ def main() -> None:
     print(f"Slides: {len(slides)} / {total_slides}")
     print(f"Output: {output_dir}")
     print(f"Concurrency: {args.concurrency}")
+    print(f"Backend: {args.backend}")
     print("=" * 60)
     print()
 
@@ -510,6 +527,7 @@ def main() -> None:
                 path = generate_slide(
                     task["prompt"], n, output_dir,
                     reference_image_path=task.get("reference_image"),
+                    backend=args.backend,
                 )
                 print(f"[OK] [slide {n}] done")
                 return n, path
