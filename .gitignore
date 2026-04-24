@@ -210,7 +210,12 @@ __marimo__/
 outputs/
 template_cache/
 template_renders/
-.env
 tmp_*
 docs/assets/gallery/
 scripts/generate_style_gallery.py
+.claude/
+results/
+logs/
+outputs/
+outputs_cache/
+output/
