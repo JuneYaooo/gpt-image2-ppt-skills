@@ -101,9 +101,109 @@ GPT_IMAGE_QUALITY=high                     # low / medium / high / auto
 
 > **安全提示**：脚本只从 `<script_dir>/.env`、`~/.claude/skills/.../env`、`~/skills/.../env` 与显式 `GPT_IMAGE2_PPT_ENV` 加载凭据，**不会**向上递归读取项目目录里的 `.env`，避免误吃无关密钥。
 
-## 可选：走 codex 自带的多模态 + 出图能力（无需配 OPENAI_API_KEY）
+## 如果你就是 Codex agent（原生 image_generation 出图 — 推荐）
 
-[OpenAI Codex](https://github.com/openai/codex) 本身就是多模态 agent——它自己就能看图、出图，不需要我们再外挂 vision / image provider。如果本机已经装好并登录了 codex (`codex login` 过)，可以让本 skill 把**图片生成**这一步派给 codex，复用它的凭据：
+**如果你自己就是 Codex**（正在运行本 skill 的 agent 就是 Codex CLI / Codex TUI），你自带 `image_generation` tool 和 ChatGPT 登录态。此时**不要**跑 `generate_ppt.py`，直接用原生工具完成整个 pipeline——零依赖、零 API Key、零套娃。
+
+### 如何判断
+
+你能访问 `image_generation` tool，并且不需要手动配 `OPENAI_API_KEY` 就能出图——满足这两个条件就走原生路径。
+
+### 出图流程（Codex 原生路径）
+
+**1. 准备 slides 数据**
+
+如果还没有 `slides_plan.json`，先按下面「生成流程」第 2-3 步写 `slides_plan.md` → `python3 scripts/md_to_plan.py ...` 转 json。
+
+**2. 读风格模板**
+
+读 `styles/<id>.md`，取 `## 基础提示词模板` section 作为 base prompt。
+
+**3. 构造每页 prompt**
+
+参考 `generate_ppt.py` 的 `generate_prompt()` 逻辑，核心规则：
+
+- 封面（cover/slide 1）：标题/副标题为视觉焦点
+- 数据页（data/最后一页）：突出关键数字、对比或结论
+- 内容页（content/其余页）：按层级、对齐、留白结构化呈现
+- **所有文字必须简体中文**，字体用思源黑体/苹方，严禁草书/艺术字
+- **16:9 横版宽屏**（landscape, widescreen），prompt 里明确说"宽度明显大于高度、绝对不要方图"
+
+```text
+{style 基础提示词模板}
+
+---
+
+现在请生成本组中的【{封面页/内容页/数据页}】，{对应 hint}
+本页要呈现的内容如下（请按本风格美学重新设计版式）：
+
+{slide content}
+
+【强制语言与字体要求】
+1. 所有文字必须使用简体中文，严禁英文（专有名词除外）
+2. 中文字体使用思源黑体或苹方，严禁草书、艺术字
+3. 标题粗体，正文常规，字号对比清晰
+
+【画面比例 — 强制】16:9 横版宽屏 (landscape, widescreen)，宽度明显大于高度，绝对不要方图或竖图。
+```
+
+**4. 调 image_generation tool 出图**
+
+对每页调你的 `image_generation` tool：
+
+- `prompt`: 上面拼好的完整 prompt
+- `output_format`: `png`
+- 将返回的图片保存到 `outputs/<timestamp>/images/slide-NN.png`（NN 为两位页码）
+
+可以并发（建议 ≤4 并发，避免限流）。
+
+**5. 生成 HTML viewer**
+
+读 `templates/viewer.html`，把 `/* IMAGE_LIST_PLACEHOLDER */` 替换为 `'images/slide-01.png', 'images/slide-02.png', ...`，写到 `outputs/<timestamp>/index.html`。
+
+**6. 打包 PPTX（可选）**
+
+```bash
+python3 -c "
+from pptx import Presentation
+from pptx.util import Inches
+prs = Presentation()
+prs.slide_width = Inches(13.333)
+prs.slide_height = Inches(7.5)
+blank = prs.slide_layouts[6]
+import os, glob
+for p in sorted(glob.glob('outputs/<timestamp>/images/slide-*.png')):
+    slide = prs.slides.add_slide(blank)
+    slide.shapes.add_picture(p, 0, 0, width=prs.slide_width, height=prs.slide_height)
+prs.save('outputs/<timestamp>/<title>.pptx')
+print('done')
+"
+```
+
+### 模板克隆模式（Codex 原生路径）
+
+你自己就是多模态 agent——直接 `Read` 模板每页 PNG 抽取视觉风格，写到 `template_cache/<sha256>.json`（schema 见 `template_analyzer.py` 里的 `TemplateProfile`），然后按上面流程出图时把对应模板页作为 reference image 传给 `image_generation` tool。
+
+**不需要配 `VISION_*`**——你就是 vision。
+
+### 与下面「--backend codex」的区别
+
+| | 原生路径（本节） | --backend codex |
+|---|---|---|
+| 适用场景 | **你就是** Codex agent | 你是 Claude Code / 其他 agent，借用本机 codex CLI |
+| 调用方式 | 直接调 `image_generation` tool | spawn `codex exec --full-auto` 子进程 |
+| 出图层数 | 1 层 | 2 层（agent → python → codex exec） |
+| 速度 | 几秒/张 | 30-60s/张 |
+| 可靠性 | tool 参数精确 | 自然语言 relay，偶发失败 |
+| 需要 API Key | 不需要 | 不需要 |
+
+---
+
+## 可选：走 codex CLI 出图（--backend codex，非 Codex caller 用）
+
+> **如果你就是 Codex agent，不要走这条路——用上一节的「原生路径」代替。**
+
+当你用 Claude Code / OpenClaw / 其他 agent 运行本 skill，但本机装了 codex CLI 且已登录（`codex login`），可以借用它的凭据出图，省掉配 `OPENAI_API_KEY`：
 
 ```bash
 python3 scripts/generate_ppt.py --plan slides_plan.json --style styles/editorial-mono.md --backend codex
@@ -126,7 +226,7 @@ CODEX_TIMEOUT_SECS=900               # 单页超时
 GPT_IMAGE_BACKEND=codex              # 不想每次敲 --backend 就设这个
 ```
 
-模板克隆的 vision 分析同理——codex 作为 agent 运行本 skill 时可以自己 `Read` 模板 PNG，不需要再配 `VISION_*`；只有把 codex 当纯出图后端、而 caller agent 又是纯文本模型时，才需要配 `VISION_*`。
+模板克隆的 vision 分析同理——当 caller agent 自己是多模态时（Claude Code / 多模态 codex），可以直接 `Read` 模板 PNG 抽取风格，不用配 `VISION_*`；只有 caller agent 是纯文本模型时才需要外挂 vision provider。
 
 ## 生成流程（内置风格）
 

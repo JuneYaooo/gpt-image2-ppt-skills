@@ -21,7 +21,7 @@
 ## 凭据 / backend
 
 - 默认后端 `openai`，需在 scoped 位置（`<script_dir>/.env` 或 `$GPT_IMAGE2_PPT_ENV`）配 `OPENAI_API_KEY`
-- **如果你就是 codex**：codex 自己就是多模态 + 自带出图能力,可以直接加 `--backend codex` 复用自己的登录,无需在本 skill 配 key(慢一点,见 `SKILL.md` "可选：走 codex 自带的多模态 + 出图能力" 一节的 tradeoff)
+- **如果你就是 codex**：走「原生 image_generation 出图」路径——直接用你自带的 `image_generation` tool 出图，**不要**跑 `generate_ppt.py --backend codex`（那是给 Claude Code 等非 codex caller 用的，会 spawn 一个多余的 codex 子进程）。完整流程见 `SKILL.md` 的「如果你就是 Codex agent」一节
 - 脚本**不会**向上递归读取项目目录的 `.env`，避免误吃无关密钥
 
 ## 不要做的事
