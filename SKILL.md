@@ -78,8 +78,10 @@ vision 分析与图片生成的 `gpt-image-2` 永远解耦——换 vision provi
 ```bash
 git clone git@github.com:JuneYaooo/gpt-image2-ppt-skills.git
 cd gpt-image2-ppt-skills
-bash install_as_skill.sh
-# 编辑 ~/.claude/skills/gpt-image2-ppt-skills/.env 填入 API_KEY
+bash install_as_skill.sh --target claude   # Claude Code
+# 或
+bash install_as_skill.sh --target codex    # Codex
+# 仅当你走 API 直连模式时，再编辑对应目录下的 .env 填入 API_KEY
 ```
 
 ## 必需的环境变量
@@ -99,7 +101,7 @@ GPT_IMAGE_QUALITY=high                     # low / medium / high / auto
 # VISION_MODEL_NAME=gemini-3.1-pro-preview   # 或 gpt-4o / claude-3.5-sonnet 等任意多模态 SKU
 ```
 
-> **安全提示**：脚本只从 `<script_dir>/.env`、`~/.claude/skills/.../env`、`~/skills/.../env` 与显式 `GPT_IMAGE2_PPT_ENV` 加载凭据，**不会**向上递归读取项目目录里的 `.env`，避免误吃无关密钥。
+> **安全提示**：脚本只从 `<script_dir>/.env`、`~/.codex/skills/.../.env`、`~/.claude/skills/.../.env`、`~/skills/.../.env` 与显式 `GPT_IMAGE2_PPT_ENV` 加载凭据，**不会**向上递归读取项目目录里的 `.env`，避免误吃无关密钥。
 
 ## 如果你就是 Codex agent（原生 image_generation 出图 — 推荐）
 

@@ -13,7 +13,7 @@ import re
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 
@@ -39,8 +39,9 @@ def find_and_load_env() -> bool:
     Search order (first match wins, no parent-directory walking):
     1. $GPT_IMAGE2_PPT_ENV (explicit override)
     2. <script_dir>/.env  -- the skill's own .env
-    3. ~/.claude/skills/gpt-image2-ppt-skills/.env  -- default Claude Code install
-    4. ~/skills/gpt-image2-ppt/.env  -- default OpenClaw install
+    3. ~/.codex/skills/gpt-image2-ppt-skills/.env  -- Codex install
+    4. ~/.claude/skills/gpt-image2-ppt-skills/.env  -- default Claude Code install
+    5. ~/skills/gpt-image2-ppt/.env  -- default OpenClaw install
 
     Intentionally does NOT walk parent directories of the script or cwd, to avoid
     accidentally loading unrelated secrets from a surrounding project's .env.
@@ -51,6 +52,7 @@ def find_and_load_env() -> bool:
         env_locations.append(Path(explicit))
     env_locations.extend([
         SCRIPT_DIR / ".env",
+        Path(os.getenv("CODEX_HOME", str(Path.home() / ".codex"))) / "skills" / "gpt-image2-ppt-skills" / ".env",
         Path.home() / ".claude" / "skills" / "gpt-image2-ppt-skills" / ".env",
         Path.home() / "skills" / "gpt-image2-ppt" / ".env",
     ])
@@ -171,25 +173,20 @@ def generate_slide(
 
     print(f"  Generating slide {slide_number} via {backend} backend ...")
 
-    try:
-        generator = _Backend(aspect_ratio="16:9")
-        image_path = os.path.join(output_dir, "images", f"slide-{slide_number:02d}.png")
+    generator = _Backend(aspect_ratio="16:9")
+    image_path = os.path.join(output_dir, "images", f"slide-{slide_number:02d}.png")
 
-        scene_data = {
-            "index": slide_number,
-            "image_prompt": prompt,
-        }
-        generator.generate_scene_image(
-            scene_data=scene_data,
-            output_path=image_path,
-            reference_image_path=reference_image_path,
-        )
-        print(f"  Slide {slide_number} saved: {image_path}")
-        return image_path
-
-    except Exception as e:
-        print(f"  Slide {slide_number} failed: {e}")
-        return None
+    scene_data = {
+        "index": slide_number,
+        "image_prompt": prompt,
+    }
+    generator.generate_scene_image(
+        scene_data=scene_data,
+        output_path=image_path,
+        reference_image_path=reference_image_path,
+    )
+    print(f"  Slide {slide_number} saved: {image_path}")
+    return image_path
 
 
 # =============================================================================
@@ -198,17 +195,26 @@ def generate_slide(
 
 def generate_viewer_html(
     output_dir: str,
-    slide_count: int,
+    slide_numbers: List[int],
     template_path: str,
 ) -> str:
     """Generate HTML viewer for slides playback."""
     if not os.path.isabs(template_path):
-        template_path = str(SCRIPT_DIR / template_path)
+        candidates = [
+            SCRIPT_DIR / template_path,
+            SCRIPT_DIR.parent / template_path,
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                template_path = str(candidate)
+                break
+        else:
+            template_path = str(candidates[0])
 
     with open(template_path, "r", encoding="utf-8") as f:
         html_template = f.read()
 
-    slides_list = [f"'images/slide-{i:02d}.png'" for i in range(1, slide_count + 1)]
+    slides_list = [f"'images/slide-{i:02d}.png'" for i in slide_numbers]
 
     html_content = html_template.replace(
         "/* IMAGE_LIST_PLACEHOLDER */",
@@ -234,7 +240,7 @@ def save_prompts(output_dir: str, prompts_data: Dict[str, Any]) -> str:
 
 def generate_pptx(
     output_dir: str,
-    slide_count: int,
+    slide_numbers: List[int],
     title: str = "Untitled",
 ) -> Optional[str]:
     """把 images/slide-XX.png 打包成 16:9 .pptx，每页填满。
@@ -256,7 +262,7 @@ def generate_pptx(
 
     img_dir = os.path.join(output_dir, "images")
     added = 0
-    for i in range(1, slide_count + 1):
+    for i in slide_numbers:
         img_path = os.path.join(img_dir, f"slide-{i:02d}.png")
         if not os.path.exists(img_path):
             print(f"  跳过 slide-{i:02d}.png（文件不存在）")
@@ -411,6 +417,8 @@ def main() -> None:
         target_nums = set(int(x.strip()) for x in args.slides.split(","))
         slides = [s for s in slides if s.get("slide_number") in target_nums]
 
+    selected_slide_numbers = [s["slide_number"] for s in slides]
+
     print("=" * 60)
     print("PPT Generator (gpt-image-2) Started")
     print("=" * 60)
@@ -529,6 +537,8 @@ def main() -> None:
                     reference_image_path=task.get("reference_image"),
                     backend=args.backend,
                 )
+                if not path:
+                    raise RuntimeError("generator returned empty image path")
                 print(f"[OK] [slide {n}] done")
                 return n, path
             except Exception as e:
@@ -559,13 +569,23 @@ def main() -> None:
     print()
 
     save_prompts(output_dir, prompts_data)
-    generate_viewer_html(output_dir, total_slides, args.template)
+    failed_slides = sorted(
+        slide["slide_number"]
+        for slide in prompts_data["slides"]
+        if not slide.get("image_path")
+    )
+    if failed_slides:
+        failed_str = ", ".join(str(n) for n in failed_slides)
+        print(f"[X] 生成失败，未继续产出 viewer / PPTX。失败页：{failed_str}")
+        sys.exit(1)
+
+    generate_viewer_html(output_dir, selected_slide_numbers, args.template)
 
     pptx_path = None
     if not args.no_pptx:
         pptx_path = generate_pptx(
             output_dir,
-            total_slides,
+            selected_slide_numbers,
             title=slides_plan.get("title", "Untitled"),
         )
 

@@ -1,12 +1,12 @@
 #!/bin/bash
 
 ##############################################################################
-# gpt-image2-ppt-skills -- Claude ​Code Skill 安装脚本
+# gpt-image2-ppt-skills -- Claude Code / Codex Skill 安装脚本
 #
-# 把当前仓库内容拷贝到 ~/.claude/skills/gpt-image2-ppt-skills/
+# 把当前仓库内容拷贝到目标 skill 目录
 # 并安装 Python 依赖、引导配置 .env。
 #
-# 用法：bash install_as_skill.sh
+# 用法：bash install_as_skill.sh [--target auto|claude|codex|openclaw]
 ##############################################################################
 
 set -e
@@ -25,10 +25,90 @@ print_header()  { echo ""; echo "========================================"; echo
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
 
+TARGET="auto"
+
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --target)
+                TARGET="${2:-}"
+                shift 2
+                ;;
+            --target=*)
+                TARGET="${1#*=}"
+                shift
+                ;;
+            *)
+                print_error "未知参数: $1"
+                echo "用法: bash install_as_skill.sh [--target auto|claude|codex|openclaw]"
+                exit 1
+                ;;
+        esac
+    done
+}
+
+resolve_install_target() {
+    case "$TARGET" in
+        auto)
+            if [ -n "${CODEX_HOME:-}" ]; then
+                echo "codex"
+            elif [ -d "$HOME/.claude" ]; then
+                echo "claude"
+            elif [ -d "$HOME/.codex" ]; then
+                echo "codex"
+            else
+                echo "claude"
+            fi
+            ;;
+        claude|codex|openclaw)
+            echo "$TARGET"
+            ;;
+        *)
+            print_error "不支持的 target: $TARGET"
+            echo "可选值: auto | claude | codex | openclaw"
+            exit 1
+            ;;
+    esac
+}
+
+resolve_skill_dir() {
+    case "$1" in
+        claude)
+            echo "$HOME/.claude/skills/gpt-image2-ppt-skills"
+            ;;
+        codex)
+            echo "${CODEX_HOME:-$HOME/.codex}/skills/gpt-image2-ppt-skills"
+            ;;
+        openclaw)
+            echo "$HOME/skills/gpt-image2-ppt"
+            ;;
+    esac
+}
+
+resolve_agent_label() {
+    case "$1" in
+        claude)
+            echo "Claude Code"
+            ;;
+        codex)
+            echo "Codex"
+            ;;
+        openclaw)
+            echo "OpenClaw"
+            ;;
+    esac
+}
+
 main() {
+    parse_args "$@"
+
     print_header "gpt-image2-ppt-skills -- 安装"
 
-    SKILL_DIR="$HOME/.claude/skills/gpt-image2-ppt-skills"
+    INSTALL_TARGET="$(resolve_install_target)"
+    SKILL_DIR="$(resolve_skill_dir "$INSTALL_TARGET")"
+    AGENT_LABEL="$(resolve_agent_label "$INSTALL_TARGET")"
+
+    print_info "目标 agent: $AGENT_LABEL"
     print_info "目标目录: $SKILL_DIR"
 
     if [ -d "$SKILL_DIR" ]; then
@@ -103,9 +183,14 @@ main() {
     print_success "已装到 $SKILL_DIR"
     echo ""
     print_info "下一步："
-    print_info "  1. 编辑 .env 填 API key:  nano $SKILL_DIR/.env"
-    print_info "  2. 重启 Claude ​Code 让 skill 生效"
-    print_info "  3. 直接对 Claude 说：'帮我用 gpt-image2-ppt 生成一份 5 页 PPT'"
+    print_info "  1. 如需 API 直连，编辑 .env 填 API key:  nano $SKILL_DIR/.env"
+    print_info "  2. 重启 $AGENT_LABEL 让 skill 生效"
+    if [ "$INSTALL_TARGET" = "codex" ]; then
+        print_info "  3. 在 Codex 里直接说：'帮我用 gpt-image2-ppt 生成一份 5 页 PPT'"
+        print_info "     如果当前 Codex 自带原生出图能力，可直接走原生路径，不必配置 OPENAI_API_KEY"
+    else
+        print_info "  3. 直接对 $AGENT_LABEL 说：'帮我用 gpt-image2-ppt 生成一份 5 页 PPT'"
+    fi
     echo ""
     print_info "冒烟测试（可选）："
     print_info "  cd $SKILL_DIR"
@@ -115,4 +200,4 @@ main() {
 
 trap 'print_error "安装过程出错"; exit 1' ERR
 
-main
+main "$@"

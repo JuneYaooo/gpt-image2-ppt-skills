@@ -6,7 +6,7 @@
 
 ## 项目一句话介绍
 
-`gpt-image2-ppt-skills` 是一个 Claude Code / OpenClaw Skill，用 OpenAI `gpt-image-2` 生成视觉强烈的 PPT（10 套内置风格 + 支持仿任意 `.pptx` 模板），产出 HTML viewer + 16:9 `.pptx`。
+`gpt-image2-ppt-skills` 是一个 Claude Code / Codex / OpenClaw Skill，用 OpenAI `gpt-image-2` 生成视觉强烈的 PPT（10 套内置风格 + 支持仿任意 `.pptx` 模板），产出 HTML viewer + 16:9 `.pptx`。
 
 仓库：https://github.com/JuneYaooo/gpt-image2-ppt-skills
 
@@ -29,23 +29,29 @@ cd /tmp/gpt-image2-ppt-skills
 ### 2. 跑安装脚本
 
 ```bash
-bash install_as_skill.sh
+# Claude Code
+bash install_as_skill.sh --target claude
+
+# Codex
+bash install_as_skill.sh --target codex
 ```
 
 这一步会：
-- 把项目文件拷贝到 `~/.claude/skills/gpt-image2-ppt-skills/`
+- 把项目文件拷贝到对应 agent 的 skill 目录
 - `pip install -r requirements.txt` 装齐 Python 依赖
-- 从 `.env.example` 生成 `~/.claude/skills/gpt-image2-ppt-skills/.env` 骨架
+- 从 `.env.example` 生成对应目录下的 `.env` 骨架
 
 安装脚本是**交互式**的，如果目标目录已存在会问是否覆盖；agent 可以用 `yes | bash install_as_skill.sh` 自动选"是"，或先检查目录是否存在再决定。
 
-### 3. 问用户要 API key 并写进 .env
+### 3. 只有在走 API 直连时才配置 .env
 
-agent 需要主动问用户：
+如果当前 agent 就是带原生图片生成能力的 Codex，可以跳过这一步，直接重启后走 `SKILL.md` 里的原生出图路径。
+
+否则，agent 需要主动问用户要 API key 并写进 `.env`：
 
 > 请提供你的 OpenAI API key（或任意 OpenAI 兼容中转的 base_url + key）。
 
-然后把以下内容写进 `~/.claude/skills/gpt-image2-ppt-skills/.env`（保留已有注释，只填值）：
+然后把以下内容写进对应目录下的 `.env`（保留已有注释，只填值）：
 
 ```bash
 OPENAI_BASE_URL=https://api.openai.com    # 或用户提供的兼容中转 URL
@@ -60,7 +66,7 @@ GPT_IMAGE_QUALITY=high                    # low / medium / high / auto
 
 装完之后，告诉用户：
 
-> 已装到 `~/.claude/skills/gpt-image2-ppt-skills/`。请**重启 Claude Code**（或你正在用的 agent）让 skill 生效。
+> 已安装完成。请**重启当前 agent**（Claude Code / Codex / 其它）让 skill 生效。
 
 ### 5.（可选）清理临时目录
 
@@ -78,17 +84,17 @@ rm -rf /tmp/gpt-image2-ppt-skills
 
 ## 常见问题（给 agent 参考）
 
-- **`ModuleNotFoundError: pymupdf`** → 重跑 `pip install -r ~/.claude/skills/gpt-image2-ppt-skills/requirements.txt`
+- **`ModuleNotFoundError: pymupdf`** → 在实际安装目录里重跑 `pip install -r requirements.txt`
 - **`libreoffice: command not found`**（仅模板克隆模式）→ Linux: `apt install libreoffice`；macOS: `brew install --cask libreoffice`；或让用户切换到内置 10 套风格之一，不走模板克隆
-- **`OPENAI_API_KEY 未设置`** → 回到步骤 3，检查 `.env` 文件路径和内容
-- **Claude Code 识别不到 skill** → 确认目录是 `~/.claude/skills/gpt-image2-ppt-skills/`（不是其它路径），并且完全重启过 Claude Code
+- **`OPENAI_API_KEY 未设置`** → 如果你不是走 Codex 原生路径，回到步骤 3，检查 `.env` 文件路径和内容
+- **agent 识别不到 skill** → 确认目录装到了对应 agent 的技能目录，并且完全重启过当前 agent
 
 ## 完成标志
 
 以下三条都满足即视为安装成功：
 
-1. `~/.claude/skills/gpt-image2-ppt-skills/SKILL.md` 存在
-2. `~/.claude/skills/gpt-image2-ppt-skills/.env` 存在且包含 `OPENAI_API_KEY=sk-...`（非占位符）
+1. 对应安装目录下的 `SKILL.md` 存在
+2. 如果走 API 直连模式，对应安装目录下的 `.env` 存在且包含可用 `OPENAI_API_KEY`
 3. agent 重启后，用户用自然语言要求生成 PPT 时能触发本 skill
 
 装完不用逐字读 `SKILL.md`，但需要告诉用户："你可以直接用自然语言要 PPT，也可以把任意 `.pptx` 模板丢给我做克隆。"

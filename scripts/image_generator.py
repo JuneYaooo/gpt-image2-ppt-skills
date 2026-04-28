@@ -82,7 +82,7 @@ class GptImage2Generator:
         self.model_name = os.getenv("GPT_IMAGE_MODEL_NAME", "gpt-image-2")
         self.quality = os.getenv("GPT_IMAGE_QUALITY", "high")
         # endpoint: chat | images | auto（auto 先 images 不行再 chat）
-        self.endpoint = os.getenv("GPT_IMAGE_ENDPOINT", "chat").lower()
+        self.endpoint = os.getenv("GPT_IMAGE_ENDPOINT", "auto").lower()
 
         if not self.api_key:
             raise ValueError("缺少 OPENAI_API_KEY，请在 .env 中配置")
@@ -300,7 +300,6 @@ class GptImage2Generator:
             "n": 1,
             "size": size,
             "quality": self.quality,
-            "response_format": "b64_json",
         }
         headers = {
             "Authorization": f"Bearer {self.api_key}",

@@ -4,7 +4,7 @@
 
 **用 OpenAI `gpt-image-2` 一键生成视觉强烈的 PPT。**
 
-Claude Code / OpenClaw Skill。装进 agent 后，用一句自然语言生成 16:9 高清图片 + 可键盘翻页的 HTML viewer + 打包好的 `.pptx`，也可以仿任意 `.pptx` 模板出全新内容。
+Claude Code / Codex / OpenClaw Skill。装进 agent 后，用一句自然语言生成 16:9 高清图片 + 可键盘翻页的 HTML viewer + 打包好的 `.pptx`，也可以仿任意 `.pptx` 模板出全新内容。
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
@@ -77,28 +77,39 @@ Claude Code / OpenClaw Skill。装进 agent 后，用一句自然语言生成 16
 https://raw.githubusercontent.com/JuneYaooo/gpt-image2-ppt-skills/main/docs/install.md
 ```
 
-agent 会自己 clone 仓库、跑安装脚本、问你要 API key、提示你重启。
+agent 会自己 clone 仓库、按当前运行环境选择安装目标、提示你重启。
 
 ### 方式二：手动安装
 
 ```bash
 git clone git@github.com:JuneYaooo/gpt-image2-ppt-skills.git
 cd gpt-image2-ppt-skills
-bash install_as_skill.sh
+bash install_as_skill.sh --target claude   # Claude Code
+# 或
+bash install_as_skill.sh --target codex    # Codex
 ```
 
-脚本会把 skill 装到 `~/.claude/skills/gpt-image2-ppt-skills/`，Claude Code 重启后自动识别。
+脚本会把 skill 装到对应 agent 的目录：
 
-然后填一个 key 就能用：
+- Claude Code: `~/.claude/skills/gpt-image2-ppt-skills/`
+- Codex: `~/.codex/skills/gpt-image2-ppt-skills/`
+
+如果你走 API 直连模式，再填一个 key 就能用：
 
 ```bash
+# Claude Code:
 # ~/.claude/skills/gpt-image2-ppt-skills/.env
+#
+# Codex:
+# ~/.codex/skills/gpt-image2-ppt-skills/.env
 OPENAI_BASE_URL=https://api.openai.com    # 或任意 OpenAI 兼容中转
 OPENAI_API_KEY=sk-...                     # 必需
 GPT_IMAGE_MODEL_NAME=gpt-image-2
 GPT_IMAGE_QUALITY=high                    # low / medium / high / auto
 ```
 
+> 在 **Codex** 里如果当前 agent 自带原生图片生成能力，可以直接走 `SKILL.md` 里的原生路径，**不必配置 `OPENAI_API_KEY`**。
+>
 > 🔒 **不会误吃密钥**：只从 skill 自己目录的 `.env` 或显式 `GPT_IMAGE2_PPT_ENV` 加载，**不会**向上递归读项目目录的 `.env`。
 >
 > 🪄 模板克隆模式额外需要本机 `libreoffice` 或 docker `linuxserver/libreoffice` 镜像（用来把 `.pptx` 渲染成 PNG）。
