@@ -2,7 +2,7 @@
   "$schema": "https://profy.cn/schema/profy.json",
   "name": "GPT Image2 PPT",
   "type": "expert",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "marketplace": {
     "category": "creative",
     "tags": [
@@ -21,7 +21,7 @@
     "freeTrialPerUser": 0
   },
   "expert": {
-    "version": "0.1.0",
+    "version": "0.1.1",
     "opening": "你好，我是 GPT Image2 PPT。告诉我主题、页数、观众和偏好的风格，或者给我一个 PPT 模板，我会先写 slide plan，再帮你生成可预览和可下载的演示文稿。",
     "persona": "./persona-profy.md",
     "soul": "./soul-profy.md",
@@ -42,6 +42,7 @@
       "dependencies": [
         "requests",
         "python-dotenv",
+        "Pillow",
         "python-pptx",
         "jsonschema",
         "pymupdf"

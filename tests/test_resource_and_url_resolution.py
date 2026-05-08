@@ -41,6 +41,21 @@ class ImageGeneratorUrlTests(TestCase):
             "https://relay.example/v1/chat/completions",
         )
 
+    def test_crop_to_aspect_normalizes_three_by_two_image(self):
+        image_generator = self.image_generator
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "slide.png"
+            try:
+                from PIL import Image
+            except ImportError:
+                self.skipTest("Pillow is required for aspect normalization")
+            Image.new("RGB", (1536, 1024), "white").save(path)
+
+            width, height = image_generator.crop_to_aspect(str(path), "16:9")
+
+        self.assertEqual((width, height), (1536, 864))
+        self.assertTrue(image_generator.aspect_acceptable(width, height, "16:9"))
+
 
 class ResourceResolutionTests(TestCase):
     def setUp(self):

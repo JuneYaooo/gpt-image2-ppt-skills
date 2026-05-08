@@ -16,7 +16,7 @@ import base64
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import requests
 
@@ -36,7 +36,7 @@ REQUEST_TIMEOUT_SECS = 600  # 图片生成可能需要 1-3 分钟
 MAX_RETRIES = 3  # 524/超时/连接断开等瞬态错误的重试次数
 RETRY_DELAY_SECS = 5
 MAX_ASPECT_RETRIES = 2  # 比例不合格自动重生次数
-ASPECT_TOLERANCE = 0.15  # 比例偏差容忍度（±15%）
+ASPECT_TOLERANCE = 0.02  # 比例偏差容忍度（±2%）
 
 # 期望的宽高比（width / height）
 ASPECT_RATIO_VALUES = {
@@ -71,6 +71,43 @@ def aspect_acceptable(width: int, height: int, target: str, tolerance: float = A
     actual = width / height
     deviation = abs(actual - expected) / expected
     return deviation <= tolerance
+
+
+def crop_to_aspect(path: str, target: str) -> Tuple[int, int]:
+    """Center-crop a generated image to the requested aspect ratio.
+
+    OpenAI-compatible image endpoints may only accept coarse sizes such as
+    1536x1024, which is 3:2 rather than 16:9. The slide pipeline promises
+    widescreen outputs, so normalize the saved PNG after generation.
+    """
+    expected = ASPECT_RATIO_VALUES.get(target)
+    if expected is None:
+        return read_png_dimensions(path)
+
+    width, height = read_png_dimensions(path)
+    if not (width and height) or aspect_acceptable(width, height, target):
+        return width, height
+
+    try:
+        from PIL import Image
+    except ImportError:
+        print("(!)  Pillow 未安装，无法自动裁切到目标比例；保留原图")
+        return width, height
+
+    with Image.open(path) as im:
+        im = im.convert("RGB")
+        actual = im.width / im.height
+        if actual > expected:
+            new_width = int(round(im.height * expected))
+            left = max(0, (im.width - new_width) // 2)
+            box = (left, 0, left + new_width, im.height)
+        else:
+            new_height = int(round(im.width / expected))
+            top = max(0, (im.height - new_height) // 2)
+            box = (0, top, im.width, top + new_height)
+        cropped = im.crop(box)
+        cropped.save(path, "PNG")
+        return cropped.size
 
 
 class GptImage2Generator:
@@ -400,13 +437,19 @@ class GptImage2Generator:
             else:
                 raise RuntimeError(f"重试 {MAX_RETRIES} 次仍失败: {last_err}")
 
-            # 比例校验
+            # 比例校验。模型端点可能只支持 3:2 / 2:3 / 1:1 等固定尺寸；
+            # 若返回尺寸不符合 PPT 宽屏比例，生成后裁切为目标比例。
             w, h = read_png_dimensions(output_path)
             if aspect_acceptable(w, h, self.aspect_ratio):
                 print(f"[OK] 已保存: {output_path}  ({w}x{h}, 比例 {w/h:.3f}, 目标 {self.aspect_ratio})")
                 return output_path
 
-            # 比例偏离
+            fixed_w, fixed_h = crop_to_aspect(output_path, self.aspect_ratio)
+            if aspect_acceptable(fixed_w, fixed_h, self.aspect_ratio):
+                print(f"[OK] 已保存: {output_path}  ({fixed_w}x{fixed_h}, 已裁切到 {self.aspect_ratio})")
+                return output_path
+
+            # 比例偏离且无法裁切时，再尝试重生
             actual_ratio = w / h if h else 0
             expected = ASPECT_RATIO_VALUES.get(self.aspect_ratio, 16/9)
             dev_pct = abs(actual_ratio - expected) / expected * 100 if expected else 0

@@ -24,7 +24,7 @@ Use this skill to create visually designed slide decks. It turns a reviewed Mark
   - `GPT_IMAGE_MODEL_NAME`: optional; defaults to `gpt-image-2`.
   - `GPT_IMAGE_ENDPOINT`: optional; `auto`, `images`, or `chat`.
   - `GPT_IMAGE_QUALITY`: optional; `low`, `medium`, `high`, or `auto`.
-- Python packages: `requests`, `python-dotenv`, `python-pptx`, `jsonschema`, `pymupdf`.
+- Python packages: `requests`, `python-dotenv`, `Pillow`, `python-pptx`, `jsonschema`, `pymupdf`.
 - Template rendering requires LibreOffice or pre-rendered PNG images.
 - Never place a real API key in this skill file, source files, or published marketplace content.
 
