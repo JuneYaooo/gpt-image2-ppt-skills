@@ -14,6 +14,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
@@ -458,6 +459,8 @@ def main() -> None:
             "title": slides_plan.get("title", "Untitled Presentation"),
             "total_slides": total_slides,
             "model": os.getenv("GPT_IMAGE_MODEL_NAME", "gpt-image-2"),
+            "endpoint": os.getenv("GPT_IMAGE_ENDPOINT", "auto"),
+            "base_url_host": urlparse(os.getenv("OPENAI_BASE_URL", "https://api.openai.com")).netloc,
             "style": style_path,
             "template": template_profile.get("source") if template_profile else None,
             "template_strict": args.template_strict if template_profile else False,

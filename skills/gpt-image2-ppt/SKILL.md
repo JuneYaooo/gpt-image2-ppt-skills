@@ -7,7 +7,9 @@ description: Generate image-based presentation decks from a topic, outline, or P
 
 ## Description
 
-Use this skill to create visually designed slide decks. It turns a reviewed Markdown slide plan into JSON, generates one 16:9 PNG per slide through an OpenAI-compatible image model, builds a keyboard-friendly HTML viewer, and packages the images into a PowerPoint file. It also supports template clone mode when the user provides a `.pptx` template or rendered template images.
+Use this skill to create visually designed slide decks. It turns a reviewed Markdown slide plan into JSON, generates one 16:9 PNG per slide through `gpt-image-2` on an OpenAI-compatible image-generation endpoint, builds a keyboard-friendly HTML viewer, and packages the images into a PowerPoint file. It also supports template clone mode when the user provides a `.pptx` template or rendered template images.
+
+This skill is Image2-only for generation. Do not replace it with platform-native image generation, HTML/CSS mockups, SVG-only slides, screenshots, or any non-`gpt-image-2` model. If the Image2 API key is unavailable, stop and ask for configuration instead of generating a substitute deck.
 
 ## When to Use
 
@@ -20,9 +22,9 @@ Use this skill to create visually designed slide decks. It turns a reviewed Mark
 
 - Runtime environment variables:
   - `OPENAI_API_KEY`: required for direct API generation.
-  - `OPENAI_BASE_URL`: optional; defaults to `https://api.openai.com`. May include `/v1`.
-  - `GPT_IMAGE_MODEL_NAME`: optional; defaults to `gpt-image-2`.
-  - `GPT_IMAGE_ENDPOINT`: optional; `auto`, `images`, or `chat`.
+  - `OPENAI_BASE_URL`: use `https://apihk.unifyllm.top` for the configured UnifyLLM/New API relay, or another OpenAI-compatible Image2 provider. May include `/v1`.
+  - `GPT_IMAGE_MODEL_NAME`: must be `gpt-image-2` unless the user explicitly selects another true Image2-compatible endpoint.
+  - `GPT_IMAGE_ENDPOINT`: use `images` for the configured relay's `gpt-image-2` image-generation endpoint.
   - `GPT_IMAGE_QUALITY`: optional; `low`, `medium`, `high`, or `auto`.
 - Python packages: `requests`, `python-dotenv`, `Pillow`, `python-pptx`, `jsonschema`, `pymupdf`.
 - Template rendering requires LibreOffice or pre-rendered PNG images.
@@ -56,7 +58,18 @@ Use this skill to create visually designed slide decks. It turns a reviewed Mark
    python {baseDir}/scripts/md_to_plan.py slides_plan.md -o slides_plan.json
    ```
 
-5. For a built-in style deck, choose one style file from `{baseDir}/references/`:
+5. Confirm the Image2 runtime configuration:
+
+   ```bash
+   test -n "$OPENAI_API_KEY"
+   export OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://apihk.unifyllm.top}"
+   export GPT_IMAGE_MODEL_NAME="gpt-image-2"
+   export GPT_IMAGE_ENDPOINT="images"
+   ```
+
+   If `OPENAI_API_KEY` is empty, stop. Do not use another generator.
+
+6. For a built-in style deck, choose one style file from `{baseDir}/references/`:
 
    - `gradient-glass.md`
    - `clean-tech-blue.md`
@@ -69,7 +82,7 @@ Use this skill to create visually designed slide decks. It turns a reviewed Mark
    - `hand-sketch.md`
    - `y2k-chrome.md`
 
-6. Run a one-slide smoke test when appropriate:
+7. Run a one-slide smoke test when appropriate:
 
    ```bash
    python {baseDir}/scripts/generate_ppt.py \
@@ -79,7 +92,7 @@ Use this skill to create visually designed slide decks. It turns a reviewed Mark
      --concurrency 1
    ```
 
-7. Run the full deck:
+8. Run the full deck:
 
    ```bash
    python {baseDir}/scripts/generate_ppt.py \
@@ -87,7 +100,7 @@ Use this skill to create visually designed slide decks. It turns a reviewed Mark
      --style {baseDir}/references/clean-tech-blue.md
    ```
 
-8. For template clone mode, add template flags:
+9. For template clone mode, add template flags:
 
    ```bash
    python {baseDir}/scripts/generate_ppt.py \
@@ -97,7 +110,8 @@ Use this skill to create visually designed slide decks. It turns a reviewed Mark
      --slides 1
    ```
 
-9. Report the generated output directory, `index.html`, `.pptx`, and any failed slides.
+10. Inspect `prompts.json` metadata or command output and report `model=gpt-image-2` plus the endpoint used. If the model is not `gpt-image-2`, treat the run as failed.
+11. Report the generated output directory, `index.html`, `.pptx`, and any failed slides.
 
 ## Output Format
 
@@ -110,6 +124,8 @@ Output directory: <path>
 HTML viewer: <path>/index.html
 PPTX: <path>/<deck>.pptx
 Warnings: <API fallback, text-legibility note, layout-reuse note, or none>
+Model: gpt-image-2
+Endpoint: images
 ```
 
 ## Examples
