@@ -106,11 +106,14 @@ OPENAI_BASE_URL=https://api.openai.com    # 或任意 OpenAI 兼容中转
 OPENAI_API_KEY=sk-...                     # 必需
 GPT_IMAGE_MODEL_NAME=gpt-image-2
 GPT_IMAGE_QUALITY=high                    # low / medium / high / auto
+GPT_IMAGE_ENDPOINT=auto                   # auto / images / chat
 ```
 
 > 在 **Codex** 里如果当前 agent 自带原生图片生成能力，可以直接走 `SKILL.md` 里的原生路径，**不必配置 `OPENAI_API_KEY`**。
 >
-> 🔒 **不会误吃密钥**：只从 skill 自己目录的 `.env` 或显式 `GPT_IMAGE2_PPT_ENV` 加载，**不会**向上递归读项目目录的 `.env`。
+> 🔒 **不会误吃密钥**：只从显式 `GPT_IMAGE2_PPT_ENV`、脚本目录或 skill 自己目录的 `.env` 加载，**不会**向上递归读项目目录的 `.env`。
+>
+> `OPENAI_BASE_URL` 可以填服务根地址或 `/v1` 地址；例如 `https://apihk.unifyllm.top` 和 `https://apihk.unifyllm.top/v1` 都会被正确处理。
 >
 > 🪄 模板克隆模式额外需要本机 `libreoffice` 或 docker `linuxserver/libreoffice` 镜像（用来把 `.pptx` 渲染成 PNG）。
 

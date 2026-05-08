@@ -1,0 +1,62 @@
+import importlib.util
+import os
+import sys
+import tempfile
+from pathlib import Path
+from unittest import TestCase
+from unittest.mock import patch
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS_DIR = REPO_ROOT / "scripts"
+
+
+def load_module(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+class ImageGeneratorUrlTests(TestCase):
+    def setUp(self):
+        self.image_generator = load_module("image_generator_under_test", SCRIPTS_DIR / "image_generator.py")
+
+    def test_api_url_accepts_root_base_url(self):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key", "OPENAI_BASE_URL": "https://relay.example"}, clear=False):
+            gen = self.image_generator.GptImage2Generator()
+
+        self.assertEqual(
+            gen._api_url("/v1/images/generations"),
+            "https://relay.example/v1/images/generations",
+        )
+
+    def test_api_url_accepts_v1_base_url(self):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key", "OPENAI_BASE_URL": "https://relay.example/v1"}, clear=False):
+            gen = self.image_generator.GptImage2Generator()
+
+        self.assertEqual(
+            gen._api_url("/v1/chat/completions"),
+            "https://relay.example/v1/chat/completions",
+        )
+
+
+class ResourceResolutionTests(TestCase):
+    def setUp(self):
+        self.generate_ppt = load_module("generate_ppt_under_test", SCRIPTS_DIR / "generate_ppt.py")
+
+    def test_resolves_packaged_reference_by_basename(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            skill_root = Path(tmp) / "skill"
+            scripts_dir = skill_root / "scripts"
+            references_dir = skill_root / "references"
+            references_dir.mkdir(parents=True)
+            scripts_dir.mkdir()
+            expected = references_dir / "clean-tech-blue.md"
+            expected.write_text("## 基础提示词模板\nexample", encoding="utf-8")
+
+            with patch.object(self.generate_ppt, "SCRIPT_DIR", scripts_dir), patch.object(self.generate_ppt, "CWD", Path(tmp) / "work"):
+                resolved = self.generate_ppt.resolve_resource_path("styles/clean-tech-blue.md", default_subdir="styles")
+
+        self.assertEqual(Path(resolved), expected)
