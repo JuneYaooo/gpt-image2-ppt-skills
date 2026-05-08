@@ -1,0 +1,123 @@
+{
+  "$schema": "https://profy.cn/schema/profy.json",
+  "name": "GPT Image2 PPT API",
+  "type": "api",
+  "version": "1.0.0",
+  "slug": "gpt-image2-ppt-api",
+  "marketplace": {
+    "category": "creative",
+    "tags": [
+      "ppt",
+      "slides",
+      "gpt-image-2",
+      "api"
+    ],
+    "description": "确定性调用 gpt-image-2 的 PPT 生成 API：输入主题或 Markdown slide plan，返回 HTML viewer、PPTX 和完整 ZIP 链接。"
+  },
+  "billing": {
+    "type": "FREE"
+  },
+  "api": {
+    "endpoint": "https://compile-know-caroline-informative.trycloudflare.com/api/run",
+    "method": "POST",
+    "timeout": 600,
+    "async": false,
+    "input": [
+      {
+        "key": "topic",
+        "label": "主题",
+        "type": "string",
+        "required": true,
+        "widget": "textarea",
+        "widgetConfig": {
+          "placeholder": "输入要生成的 PPT 主题",
+          "rows": 2,
+          "defaultValue": "AI 产品发布演示"
+        }
+      },
+      {
+        "key": "slideCount",
+        "label": "页数",
+        "type": "number",
+        "required": false,
+        "widget": "number",
+        "widgetConfig": {
+          "min": 1,
+          "max": 12,
+          "step": 1,
+          "defaultValue": 5
+        }
+      },
+      {
+        "key": "style",
+        "label": "风格",
+        "type": "string",
+        "required": false,
+        "widget": "select",
+        "widgetConfig": {
+          "defaultValue": "clean-tech-blue",
+          "options": [
+            {
+              "label": "Clean Tech Blue",
+              "value": "clean-tech-blue"
+            },
+            {
+              "label": "Dark Aurora",
+              "value": "dark-aurora"
+            },
+            {
+              "label": "Editorial Mono",
+              "value": "editorial-mono"
+            },
+            {
+              "label": "Swiss Grid",
+              "value": "swiss-grid"
+            },
+            {
+              "label": "Gradient Glass",
+              "value": "gradient-glass"
+            }
+          ]
+        }
+      },
+      {
+        "key": "quality",
+        "label": "质量",
+        "type": "string",
+        "required": false,
+        "widget": "select",
+        "widgetConfig": {
+          "defaultValue": "high",
+          "options": [
+            {
+              "label": "High",
+              "value": "high"
+            },
+            {
+              "label": "Medium",
+              "value": "medium"
+            },
+            {
+              "label": "Low",
+              "value": "low"
+            }
+          ]
+        }
+      },
+      {
+        "key": "slidesMarkdown",
+        "label": "slides_plan.md（可选）",
+        "type": "string",
+        "required": false,
+        "widget": "textarea",
+        "widgetConfig": {
+          "placeholder": "留空则按主题自动生成结构化草稿；也可以粘贴完整 slides_plan.md",
+          "rows": 8
+        }
+      }
+    ],
+    "output": {
+      "type": "raw"
+    }
+  }
+}

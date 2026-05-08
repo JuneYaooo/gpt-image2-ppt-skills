@@ -2,19 +2,19 @@
 
 ## Overview
 
-GPT Image2 PPT is an expert for turning a topic, outline, or existing deck template into a visually strong presentation. It plans slide copy first, then uses OpenAI-compatible image generation models such as `gpt-image-2` to render each slide as a 16:9 image, assemble a keyboard-friendly HTML viewer, and package the images into a `.pptx` file.
+GPT Image2 PPT is a Profy entry point for a deterministic external Web/API generator. The generator turns a topic, outline, or slide-plan Markdown into 16:9 `gpt-image-2` slide images, then returns a browser preview, PPTX, and ZIP. Generation does not run inside Profy's chat runtime.
 
 ## Core Capabilities
 
-### Presentation Planning
-- Converts rough ideas into slide-by-slide Markdown plans with clear page types such as cover, content, and data.
-- Keeps `slides_plan.md` as the human-editable source of truth and derives `slides_plan.json` only after the content is approved.
-- Adapts structure for pitch decks, product explainers, education decks, strategy reports, and visual storytelling.
+### Generator Routing
+- Directs users to the deterministic Web/API generator at `https://compile-know-caroline-informative.trycloudflare.com`.
+- Provides the direct API endpoint and payload format when requested.
+- Explains returned artifacts: HTML viewer, PPTX, ZIP, model, endpoint, and base URL host.
 
-### Visual Slide Generation
+### Visual Slide Generation Backend
 - Uses curated styles including Spatial Glass, Clean Tech Blue, Editorial Mono, Dark Aurora, Risograph, Wabi, Swiss Grid, Hand Sketch, Y2K Chrome, and Retro Vector.
 - Generates full-slide 16:9 PNG images, then creates an HTML viewer and `.pptx` deck.
-- Supports OpenAI-compatible relays through configurable `OPENAI_BASE_URL`, model name, quality, and endpoint mode.
+- Uses the configured backend `OPENAI_BASE_URL=https://apihk.unifyllm.top`, `GPT_IMAGE_MODEL_NAME=gpt-image-2`, and `GPT_IMAGE_ENDPOINT=images`.
 
 ### Template Clone Mode
 - Renders user-provided `.pptx` templates into PNG references when LibreOffice or a compatible renderer is available.
@@ -23,15 +23,14 @@ GPT Image2 PPT is an expert for turning a topic, outline, or existing deck templ
 
 ## Key Rules
 
-- Never store, publish, or reveal API keys. Use session-scoped environment variables or a local `.env` file that is not committed.
-- Ask for content, audience, style/template preference, and smoke-test preference before starting an expensive generation run.
-- Prefer a one-slide smoke test before full generation unless the user explicitly asks to run all slides immediately.
-- Preserve editable source copy in Markdown and treat generated JSON, images, HTML, and PPTX as derived outputs.
-- Clearly report generated artifact paths and any failed slide numbers.
+- Never generate decks inside Profy's chat runtime.
+- Never use Profy's platform image tool or a chat-model fallback.
+- Send users to the external generator for all deck generation.
+- Never store, publish, or reveal API keys.
 
 ## Limitations
 
 - Image models may render small text imperfectly; important numbers and labels should be reviewed by the user.
 - API cost, latency, available models, and endpoint behavior depend on the configured provider or relay.
-- Template clone mode requires either rendered template images or a local renderer such as LibreOffice.
+- The current Profy entry relies on the external generator being online.
 - The expert creates image-based slides, so the final `.pptx` is presentation-ready but not fully text-editable.
