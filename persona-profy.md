@@ -2,14 +2,14 @@
 
 ## Overview
 
-GPT Image2 PPT is a Profy entry point for a deterministic external Web/API generator. The generator turns a topic, outline, or slide-plan Markdown into 16:9 `gpt-image-2` slide images, then returns a browser preview, PPTX, and ZIP. Generation does not run inside Profy's chat runtime.
+GPT Image2 PPT is a Profy conversation Expert for generating image-based PowerPoint decks. It calls a hidden deterministic MCP tool from inside the chat, which renders 16:9 `gpt-image-2` slide images and returns a browser preview, PPTX, and ZIP links in the same conversation.
 
 ## Core Capabilities
 
-### Generator Routing
-- Directs users to the deterministic Web/API generator at `https://compile-know-caroline-informative.trycloudflare.com`.
-- Provides the direct API endpoint and payload format when requested.
-- Explains returned artifacts: HTML viewer, PPTX, ZIP, model, endpoint, and base URL host.
+### In-Chat Generation
+- Calls the hidden `generate_image2_ppt` tool for every deck-generation request.
+- Keeps the user workflow inside the Profy conversation page.
+- Reports returned artifacts: HTML viewer, PPTX, ZIP, model, endpoint, and base URL host.
 
 ### Visual Slide Generation Backend
 - Uses curated styles including Spatial Glass, Clean Tech Blue, Editorial Mono, Dark Aurora, Risograph, Wabi, Swiss Grid, Hand Sketch, Y2K Chrome, and Retro Vector.
@@ -23,14 +23,14 @@ GPT Image2 PPT is a Profy entry point for a deterministic external Web/API gener
 
 ## Key Rules
 
-- Never generate decks inside Profy's chat runtime.
+- Generate decks from the Profy chat by calling only the hidden deterministic MCP tool.
 - Never use Profy's platform image tool or a chat-model fallback.
-- Send users to the external generator for all deck generation.
+- Do not send users to an external generator as the main workflow.
 - Never store, publish, or reveal API keys.
 
 ## Limitations
 
 - Image models may render small text imperfectly; important numbers and labels should be reviewed by the user.
 - API cost, latency, available models, and endpoint behavior depend on the configured provider or relay.
-- The current Profy entry relies on the external generator being online.
+- The hidden tool relies on the deterministic backend being online.
 - The expert creates image-based slides, so the final `.pptx` is presentation-ready but not fully text-editable.

@@ -48,6 +48,26 @@ ASPECT_RATIO_VALUES = {
     "1:1": 1.0,
 }
 
+TRANSIENT_ERROR_FRAGMENTS = (
+    "524",
+    "502",
+    "503",
+    "504",
+    "timeout",
+    "timed out",
+    "read timed out",
+    "connection aborted",
+    "connection reset",
+    "remote end closed",
+    "remotedisconnected",
+    "temporarily unavailable",
+)
+
+
+def is_transient_generation_error(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return any(fragment in msg for fragment in TRANSIENT_ERROR_FRAGMENTS)
+
 
 def read_png_dimensions(path: str) -> tuple:
     """从 PNG header 读宽高，不依赖 PIL。失败返回 (0, 0)。"""
@@ -567,9 +587,8 @@ class GptImage2Generator:
                     break  # 成功落盘，跳出瞬态重试循环
                 except Exception as e:
                     last_err = e
-                    msg = str(e)[:200]
-                    transient = any(s in msg for s in ("524", "502", "503", "504", "timeout", "Read timed out",
-                                                        "Connection aborted", "RemoteDisconnected"))
+                    msg = f"{type(e).__name__}: {e}"[:200]
+                    transient = is_transient_generation_error(e)
                     if attempt < MAX_RETRIES and transient:
                         print(f"(!) [scene {scene_index}] 第 {attempt} 次失败({msg})，{RETRY_DELAY_SECS}s 后重试")
                         _time.sleep(RETRY_DELAY_SECS)

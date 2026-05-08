@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import mimetypes
 import os
+import re
 import sys
 import threading
 import time
@@ -42,6 +43,28 @@ sys.modules.setdefault("flask", _fake_flask)
 from app import server as core  # noqa: E402
 
 
+def html_with_asset_base(html: str, job_id: str) -> str:
+    base_tag = f'<base href="/api/jobs/{job_id}/assets/">'
+    if "<base " in html.lower():
+        return html
+    rewritten, count = re.subn(r"(<head[^>]*>)", rf"\1\n{base_tag}", html, count=1, flags=re.IGNORECASE)
+    if count:
+        return rewritten
+    return f"{base_tag}\n{html}"
+
+
+def resolve_job_asset(output_dir: str | Path, asset_path: str) -> Path | None:
+    root = Path(output_dir).resolve()
+    target = (root / asset_path).resolve()
+    try:
+        target.relative_to(root)
+    except ValueError:
+        return None
+    if not target.exists() or not target.is_file():
+        return None
+    return target
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "GPTImage2PPT/1.0"
 
@@ -70,7 +93,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(path.stat().st_size))
         disposition = "inline" if inline else "attachment"
-        self.send_header("Content-Disposition", f'{disposition}; filename="{path.name}"')
+        ascii_name = re.sub(r"[^A-Za-z0-9._-]+", "_", path.name).strip("_") or "download"
+        self.send_header("Content-Disposition", f'{disposition}; filename="{ascii_name}"')
         self.end_headers()
         with path.open("rb") as f:
             while True:
@@ -78,6 +102,19 @@ class Handler(BaseHTTPRequestHandler):
                 if not chunk:
                     break
                 self.wfile.write(chunk)
+
+    def _send_html_file(self, path: Path, job_id: str) -> None:
+        if not path.exists() or not path.is_file():
+            self._send_json({"error": "not found"}, 404)
+            return
+        body = html_with_asset_base(path.read_text(encoding="utf-8", errors="replace"), job_id).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        ascii_name = re.sub(r"[^A-Za-z0-9._-]+", "_", path.name).strip("_") or "index.html"
+        self.send_header("Content-Disposition", f'inline; filename="{ascii_name}"')
+        self.end_headers()
+        self.wfile.write(body)
 
     def _public_base_url(self) -> str:
         proto = self.headers.get("X-Forwarded-Proto") or "https"
@@ -151,7 +188,22 @@ class Handler(BaseHTTPRequestHandler):
             if not key or not job.get(key):
                 self._send_json({"error": "not found"}, 404)
                 return
+            if kind == "html":
+                self._send_html_file(Path(job[key]), parts[2])
+                return
             self._send_file(Path(job[key]), inline=(kind == "html"))
+            return
+
+        if len(parts) >= 5 and parts[:2] == ["api", "jobs"] and parts[3] == "assets":
+            job = core.jobs.get(parts[2])
+            if not job or job.get("status") != "done" or not job.get("outputDir"):
+                self._send_json({"error": "not found"}, 404)
+                return
+            target = resolve_job_asset(job["outputDir"], "/".join(parts[4:]))
+            if not target:
+                self._send_json({"error": "not found"}, 404)
+                return
+            self._send_file(target, inline=True)
             return
 
         self._send_json({"error": "not found"}, 404)

@@ -2,7 +2,7 @@
   "$schema": "https://profy.cn/schema/profy.json",
   "name": "GPT Image2 PPT",
   "type": "expert",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "slug": "gpt-image2-ppt",
   "marketplace": {
     "category": "creative",
@@ -14,7 +14,7 @@
       "image-generation",
       "template-clone"
     ],
-    "description": "GPT Image2 PPT 的 Profy 入口。生成工作由确定性 HTTPS Web/API 后端完成，直接调用 gpt-image-2 并返回 HTML viewer、PPTX 与 ZIP。"
+    "description": "在 Profy 对话页内完成 GPT Image2 PPT 生成：隐藏工具调用确定性后端，直接返回 HTML viewer、PPTX 与 ZIP 链接。"
   },
   "billing": {
     "type": "FREE",
@@ -22,12 +22,30 @@
     "freeTrialPerUser": 0
   },
   "expert": {
-    "version": "0.1.6",
-    "opening": "GPT Image2 PPT 已切换为确定性 Web/API 生成器，不在 Profy 聊天里调用 image tool。打开生成器：https://compile-know-caroline-informative.trycloudflare.com",
+    "version": "0.1.7",
+    "opening": "告诉我 PPT 主题、页数和风格，我会在 Profy 对话里调用 GPT Image2 PPT 生成工具，并直接返回 HTML 预览、PPTX 和 ZIP。",
     "persona": "./persona-profy.md",
     "soul": "./soul-profy.md",
     "agent": "./agent-profy.md",
     "skills": [],
+    "tools": [
+      {
+        "type": "mcp",
+        "name": "gpt-image2-ppt",
+        "config": "./mcp/gpt_image2_ppt_mcp.json",
+        "visibility": "hidden"
+      }
+    ],
+    "sandbox": {
+      "runtime": "node",
+      "dependencies": [],
+      "capabilities": [
+        "internet"
+      ],
+      "resource_limits": {
+        "timeout_seconds": 3600
+      }
+    },
     "visibility": {
       "persona": "hidden",
       "skills": "capabilities_only",

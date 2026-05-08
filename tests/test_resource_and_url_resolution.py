@@ -56,6 +56,13 @@ class ImageGeneratorUrlTests(TestCase):
         self.assertEqual((width, height), (1536, 864))
         self.assertTrue(image_generator.aspect_acceptable(width, height, "16:9"))
 
+    def test_remote_end_closed_error_is_retriable(self):
+        self.assertTrue(
+            self.image_generator.is_transient_generation_error(
+                RuntimeError("Remote end closed connection without response")
+            )
+        )
+
 
 class ResourceResolutionTests(TestCase):
     def setUp(self):
@@ -75,3 +82,24 @@ class ResourceResolutionTests(TestCase):
                 resolved = self.generate_ppt.resolve_resource_path("styles/clean-tech-blue.md", default_subdir="styles")
 
         self.assertEqual(Path(resolved), expected)
+
+
+class StdlibServerAssetTests(TestCase):
+    def setUp(self):
+        app_root = REPO_ROOT / "profy_image2_app"
+        sys.path.insert(0, str(app_root))
+        try:
+            self.server_stdlib = load_module(
+                "server_stdlib_under_test",
+                app_root / "app" / "server_stdlib.py",
+            )
+        finally:
+            sys.path.remove(str(app_root))
+
+    def test_html_preview_gets_job_asset_base(self):
+        html = "<html><head><title>x</title></head><body><script>const slides = ['images/slide-01.png'];</script></body></html>"
+
+        rewritten = self.server_stdlib.html_with_asset_base(html, "abc123")
+
+        self.assertIn('<base href="/api/jobs/abc123/assets/">', rewritten)
+        self.assertIn("images/slide-01.png", rewritten)
