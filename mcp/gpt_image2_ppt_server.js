@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const DEFAULT_API_BASE_URL = "https://compile-know-caroline-informative.trycloudflare.com";
+const DEFAULT_API_BASE_URL = "https://tail-metallic-immigration-nutrition.trycloudflare.com";
 const configuredUrl = process.env.GPT_IMAGE2_PPT_API_URL || process.env.GPT_IMAGE2_PPT_API_BASE_URL || DEFAULT_API_BASE_URL;
 const API_BASE_URL = configuredUrl.replace(/\/api\/run\/?$/, "").replace(/\/+$/, "");
 

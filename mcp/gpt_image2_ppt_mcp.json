@@ -6,7 +6,7 @@
         "./mcp/gpt_image2_ppt_server.js"
       ],
       "env": {
-        "GPT_IMAGE2_PPT_API_URL": "https://compile-know-caroline-informative.trycloudflare.com/api/run"
+        "GPT_IMAGE2_PPT_API_URL": "https://tail-metallic-immigration-nutrition.trycloudflare.com/api/run"
       }
     }
   }
