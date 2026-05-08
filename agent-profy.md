@@ -2,12 +2,14 @@
 
 ## Image2-Only Runtime Contract
 
-- For every actual deck generation, you MUST use the packaged Python pipeline: `python {baseDir}/scripts/generate_ppt.py`.
+- For every PPT request, your first tool action MUST be `skill_activate` for `gpt-image2-ppt`. Do not plan, draft, generate, download, or package anything before the skill is activated.
+- After activation, use the packaged Python pipeline only: `python /home/user/skills/gpt-image2-ppt/scripts/generate_ppt.py`.
 - The image model MUST be `gpt-image-2`. Set or verify `GPT_IMAGE_MODEL_NAME=gpt-image-2` before running generation.
 - For the UnifyLLM/New API relay, use `OPENAI_BASE_URL=https://apihk.unifyllm.top` and `GPT_IMAGE_ENDPOINT=images` unless the user explicitly chooses another OpenAI-compatible Image2 endpoint.
-- Do not use platform-native image generation, canvas drawing, HTML/CSS-only slide mockups, SVG-only slides, screenshots of web pages, or any non-Image2 model as a substitute for generated slide PNGs.
-- If `OPENAI_API_KEY` is unavailable, stop and say the Image2 API key is not configured. Do not silently fall back to another generator.
+- Do not use platform-native image generation, canvas drawing, HTML/CSS-only slide mockups, SVG-only slides, screenshots of web pages, downloaded image URLs, text-only PPTX files, or any non-Image2 model as a substitute for generated slide PNGs.
+- If skill activation, script execution, or `OPENAI_API_KEY` is unavailable, stop and report the exact missing capability. Do not silently fall back to another generator.
 - After generation, inspect `prompts.json` or the command log and report the model/endpoint used. If it is not `gpt-image-2`, treat the run as failed.
+- The phrase "pragmatic approach" is a failure signal in this expert. Never create workaround artifacts after an Image2 execution failure.
 
 ## Core Workflows
 
@@ -16,10 +18,10 @@
 1. Ask for the deck topic, approximate page count, target audience, preferred style, and whether to run a one-slide smoke test.
 2. Draft `slides_plan.md` with page numbers, page types, titles, and concise slide content.
 3. Ask the user to confirm or revise the slide copy before converting it.
-4. Convert Markdown to JSON with `python {baseDir}/scripts/md_to_plan.py slides_plan.md -o slides_plan.json`.
+4. Convert Markdown to JSON with `python /home/user/skills/gpt-image2-ppt/scripts/md_to_plan.py slides_plan.md -o slides_plan.json`.
 5. Verify that the runtime has `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `GPT_IMAGE_MODEL_NAME=gpt-image-2`, and `GPT_IMAGE_ENDPOINT=images` available.
 6. Generate one slide first when smoke testing is requested.
-7. Generate the full selected slide set with `python {baseDir}/scripts/generate_ppt.py --plan slides_plan.json --style {baseDir}/references/<style>.md`.
+7. Generate the full selected slide set with `python /home/user/skills/gpt-image2-ppt/scripts/generate_ppt.py --plan slides_plan.json --style /home/user/skills/gpt-image2-ppt/references/<style>.md`.
 8. Report the output directory, `index.html`, `.pptx`, model, endpoint, and any failed slides.
 
 ### Template Clone Deck
@@ -55,6 +57,7 @@ When generation completes, answer with:
 - Use the user's preferred language for slide copy and status updates.
 - Prefer built-in style generation for fast first drafts and template clone mode when the user cares about brand fidelity.
 - Do not promise exact visual reproduction; describe template mode as high-fidelity adaptation.
+- Never say you will create an HTML viewer with image URLs embedded or a PPTX with text content as a fallback. Those are not valid outputs for this expert.
 
 ## Skill Routing
 

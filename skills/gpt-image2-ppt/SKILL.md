@@ -9,7 +9,7 @@ description: Generate image-based presentation decks from a topic, outline, or P
 
 Use this skill to create visually designed slide decks. It turns a reviewed Markdown slide plan into JSON, generates one 16:9 PNG per slide through `gpt-image-2` on an OpenAI-compatible image-generation endpoint, builds a keyboard-friendly HTML viewer, and packages the images into a PowerPoint file. It also supports template clone mode when the user provides a `.pptx` template or rendered template images.
 
-This skill is Image2-only for generation. Do not replace it with platform-native image generation, HTML/CSS mockups, SVG-only slides, screenshots, or any non-`gpt-image-2` model. If the Image2 API key is unavailable, stop and ask for configuration instead of generating a substitute deck.
+This skill is Image2-only for generation. Do not replace it with platform-native image generation, HTML/CSS mockups, SVG-only slides, screenshots, downloaded image URLs, text-only PPTX files, or any non-`gpt-image-2` model. If the Image2 API key or packaged script execution is unavailable, stop and ask for configuration instead of generating a substitute deck. The phrase "pragmatic approach" means the workflow has failed; do not proceed with workaround artifacts.
 
 ## When to Use
 
@@ -55,7 +55,7 @@ This skill is Image2-only for generation. Do not replace it with platform-native
 4. Convert the plan:
 
    ```bash
-   python {baseDir}/scripts/md_to_plan.py slides_plan.md -o slides_plan.json
+   python /home/user/skills/gpt-image2-ppt/scripts/md_to_plan.py slides_plan.md -o slides_plan.json
    ```
 
 5. Confirm the Image2 runtime configuration:
@@ -69,7 +69,7 @@ This skill is Image2-only for generation. Do not replace it with platform-native
 
    If `OPENAI_API_KEY` is empty, stop. Do not use another generator.
 
-6. For a built-in style deck, choose one style file from `{baseDir}/references/`:
+6. For a built-in style deck, choose one style file from `/home/user/skills/gpt-image2-ppt/references/`:
 
    - `gradient-glass.md`
    - `clean-tech-blue.md`
@@ -85,9 +85,9 @@ This skill is Image2-only for generation. Do not replace it with platform-native
 7. Run a one-slide smoke test when appropriate:
 
    ```bash
-   python {baseDir}/scripts/generate_ppt.py \
+   python /home/user/skills/gpt-image2-ppt/scripts/generate_ppt.py \
      --plan slides_plan.json \
-     --style {baseDir}/references/clean-tech-blue.md \
+     --style /home/user/skills/gpt-image2-ppt/references/clean-tech-blue.md \
      --slides 1 \
      --concurrency 1
    ```
@@ -95,15 +95,15 @@ This skill is Image2-only for generation. Do not replace it with platform-native
 8. Run the full deck:
 
    ```bash
-   python {baseDir}/scripts/generate_ppt.py \
+   python /home/user/skills/gpt-image2-ppt/scripts/generate_ppt.py \
      --plan slides_plan.json \
-     --style {baseDir}/references/clean-tech-blue.md
+     --style /home/user/skills/gpt-image2-ppt/references/clean-tech-blue.md
    ```
 
 9. For template clone mode, add template flags:
 
    ```bash
-   python {baseDir}/scripts/generate_ppt.py \
+   python /home/user/skills/gpt-image2-ppt/scripts/generate_ppt.py \
      --plan slides_plan.json \
      --template-pptx ./template.pptx \
      --template-strict \
@@ -138,7 +138,7 @@ Action:
 
 1. Draft `slides_plan.md`.
 2. Convert with `md_to_plan.py`.
-3. Use `{baseDir}/references/clean-tech-blue.md`.
+3. Use `/home/user/skills/gpt-image2-ppt/references/clean-tech-blue.md`.
 4. Run `--slides 1`, then full generation after approval.
 
 ### Template Clone
