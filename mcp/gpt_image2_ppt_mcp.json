@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "gpt-image2-ppt": {
+      "command": "node",
+      "args": [
+        "./mcp/gpt_image2_ppt_server.js"
+      ],
+      "env": {
+        "GPT_IMAGE2_PPT_API_URL": "https://tail-metallic-immigration-nutrition.trycloudflare.com/api/run"
+      }
+    }
+  }
+}

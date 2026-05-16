@@ -1,0 +1,58 @@
+{
+  "$schema": "https://profy.cn/schema/profy.json",
+  "name": "GPT Image2 PPT",
+  "type": "expert",
+  "version": "0.1.9",
+  "slug": "gpt-image2-ppt",
+  "marketplace": {
+    "category": "creative",
+    "tags": [
+      "ppt",
+      "slides",
+      "presentation",
+      "gpt-image-2",
+      "image-generation",
+      "template-clone"
+    ],
+    "description": "在 Profy 对话页内完成 GPT Image2 PPT 生成：隐藏工具调用确定性后端，直接返回 HTML viewer、PPTX 与 ZIP 链接。"
+  },
+  "billing": {
+    "type": "FREE",
+    "amount": 0,
+    "freeTrialPerUser": 0
+  },
+  "expert": {
+    "version": "0.1.9",
+    "opening": "告诉我 PPT 主题、页数和风格，我会在 Profy 对话里调用 GPT Image2 PPT 生成工具，并直接返回 HTML 预览、PPTX 和 ZIP。",
+    "persona": "./persona-profy.md",
+    "soul": "./soul-profy.md",
+    "agent": "./agent-profy.md",
+    "skills": [],
+    "tools": [
+      {
+        "type": "mcp",
+        "name": "gpt-image2-ppt",
+        "config": "./mcp/gpt_image2_ppt_mcp.json",
+        "visibility": "hidden"
+      }
+    ],
+    "sandbox": {
+      "runtime": "node",
+      "dependencies": [],
+      "capabilities": [
+        "internet"
+      ],
+      "resource_limits": {
+        "timeout_seconds": 3600
+      }
+    },
+    "visibility": {
+      "persona": "hidden",
+      "skills": "capabilities_only",
+      "knowledge": "hidden",
+      "sandbox": "requirements_only",
+      "tools": "hidden",
+      "subagents": "hidden"
+    }
+  }
+}

@@ -16,7 +16,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv(*_args: Any, **_kwargs: Any) -> bool:
+        return False
 
 
 # =============================================================================
@@ -621,8 +625,7 @@ def main() -> None:
         print(f"PPTX file:   {pptx_path}")
     print()
     print("Open viewer in browser:")
-    open_cmd = "start" if sys.platform == "win32" else "open"
-    print(f"  {open_cmd} {os.path.join(output_dir, 'index.html')}")
+    print(f"  open {os.path.join(output_dir, 'index.html')}")
     print()
 
 

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://profy.cn/schema/profy.json",
+  "name": "GPT Image2 PPT App",
+  "type": "app",
+  "version": "1.0.0",
+  "slug": "gpt-image2-ppt-app",
+  "framework": "python",
+  "marketplace": {
+    "category": "creative",
+    "tags": [
+      "ppt",
+      "slides",
+      "gpt-image-2",
+      "image-generation"
+    ],
+    "description": "确定性调用 gpt-image-2 的 PPT 生成应用：输入主题或 Markdown slide plan，后端直接生成 16:9 PNG、HTML viewer 和 PPTX，不经过聊天模型的图片工具。"
+  },
+  "billing": {
+    "type": "FREE",
+    "amount": 0
+  },
+  "runtime": {
+    "memory": 1024,
+    "maxInstances": 1,
+    "timeout": 300,
+    "healthCheck": "/health"
+  },
+  "env": {
+    "OPENAI_API_KEY": {
+      "required": true,
+      "description": "Image API key used by the deterministic backend."
+    },
+    "OPENAI_BASE_URL": {
+      "required": true,
+      "description": "Image API base URL, default https://apihk.unifyllm.top."
+    },
+    "GPT_IMAGE_MODEL_NAME": {
+      "required": true,
+      "description": "Must be gpt-image-2."
+    }
+  },
+  "deploy": {
+    "mode": "docker",
+    "platform": "linux/amd64"
+  }
+}

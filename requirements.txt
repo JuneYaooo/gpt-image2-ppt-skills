@@ -1,5 +1,6 @@
 requests>=2.31
 python-dotenv>=1.0
+Pillow>=10.0
 python-pptx>=1.0
 jsonschema>=4.0
 pymupdf>=1.24

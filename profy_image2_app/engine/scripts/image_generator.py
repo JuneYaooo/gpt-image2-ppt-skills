@@ -13,12 +13,15 @@ gpt-image-2 图片生成器
 from __future__ import annotations
 
 import base64
+import json
 import os
 import re
+import struct
+import urllib.error
+import urllib.request
+import zlib
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
-
-import requests
 
 # .env 加载由顶层入口（generate_ppt.py 的 find_and_load_env）统一负责。
 # 本模块不调 load_dotenv()，避免 import 时无意识加载父目录 / cwd 的 .env，
@@ -93,6 +96,122 @@ def aspect_acceptable(width: int, height: int, target: str, tolerance: float = A
     return deviation <= tolerance
 
 
+def _paeth(a: int, b: int, c: int) -> int:
+    p = a + b - c
+    pa = abs(p - a)
+    pb = abs(p - b)
+    pc = abs(p - c)
+    if pa <= pb and pa <= pc:
+        return a
+    if pb <= pc:
+        return b
+    return c
+
+
+def _png_channels(color_type: int) -> int:
+    channels = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}
+    if color_type not in channels:
+        raise ValueError(f"Unsupported PNG color type: {color_type}")
+    return channels[color_type]
+
+
+def _png_chunk(kind: bytes, data: bytes) -> bytes:
+    return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+
+
+def _crop_png_to_aspect(path: str, target: str) -> Tuple[int, int]:
+    expected = ASPECT_RATIO_VALUES[target]
+    raw = Path(path).read_bytes()
+    sig = b"\x89PNG\r\n\x1a\n"
+    if not raw.startswith(sig):
+        raise ValueError("Not a PNG")
+
+    offset = len(sig)
+    ihdr = None
+    idat_parts = []
+    preserved = []
+    while offset < len(raw):
+        if offset + 8 > len(raw):
+            raise ValueError("Truncated PNG")
+        length = struct.unpack(">I", raw[offset : offset + 4])[0]
+        kind = raw[offset + 4 : offset + 8]
+        data = raw[offset + 8 : offset + 8 + length]
+        offset += 12 + length
+        if kind == b"IHDR":
+            ihdr = data
+        elif kind == b"IDAT":
+            idat_parts.append(data)
+        elif kind == b"IEND":
+            break
+        else:
+            preserved.append((kind, data))
+
+    if ihdr is None:
+        raise ValueError("PNG missing IHDR")
+    width, height, bit_depth, color_type, compression, filter_method, interlace = struct.unpack(">IIBBBBB", ihdr)
+    if bit_depth != 8 or compression != 0 or filter_method != 0 or interlace != 0:
+        raise ValueError("Unsupported PNG encoding for pure-python crop")
+
+    actual = width / height
+    if actual > expected:
+        new_width = int(round(height * expected))
+        new_height = height
+        left = max(0, (width - new_width) // 2)
+        top = 0
+    else:
+        new_width = width
+        new_height = int(round(width / expected))
+        left = 0
+        top = max(0, (height - new_height) // 2)
+
+    channels = _png_channels(color_type)
+    bpp = channels
+    stride = width * channels
+    payload = zlib.decompress(b"".join(idat_parts))
+    rows = []
+    pos = 0
+    prev = bytearray(stride)
+    for _ in range(height):
+        filt = payload[pos]
+        pos += 1
+        row = bytearray(payload[pos : pos + stride])
+        pos += stride
+        for i, val in enumerate(row):
+            a = row[i - bpp] if i >= bpp else 0
+            b = prev[i]
+            c = prev[i - bpp] if i >= bpp else 0
+            if filt == 1:
+                row[i] = (val + a) & 0xFF
+            elif filt == 2:
+                row[i] = (val + b) & 0xFF
+            elif filt == 3:
+                row[i] = (val + ((a + b) // 2)) & 0xFF
+            elif filt == 4:
+                row[i] = (val + _paeth(a, b, c)) & 0xFF
+            elif filt != 0:
+                raise ValueError(f"Unsupported PNG filter: {filt}")
+        rows.append(bytes(row))
+        prev = row
+
+    cropped_rows = rows[top : top + new_height]
+    left_byte = left * channels
+    cropped_stride = new_width * channels
+    filtered = bytearray()
+    for row in cropped_rows:
+        filtered.append(0)
+        filtered.extend(row[left_byte : left_byte + cropped_stride])
+
+    new_ihdr = struct.pack(">IIBBBBB", new_width, new_height, bit_depth, color_type, compression, filter_method, interlace)
+    out = bytearray(sig)
+    out.extend(_png_chunk(b"IHDR", new_ihdr))
+    for kind, data in preserved:
+        out.extend(_png_chunk(kind, data))
+    out.extend(_png_chunk(b"IDAT", zlib.compress(bytes(filtered), level=6)))
+    out.extend(_png_chunk(b"IEND", b""))
+    Path(path).write_bytes(out)
+    return new_width, new_height
+
+
 def crop_to_aspect(path: str, target: str) -> Tuple[int, int]:
     """Center-crop a generated image to the requested aspect ratio.
 
@@ -111,8 +230,11 @@ def crop_to_aspect(path: str, target: str) -> Tuple[int, int]:
     try:
         from PIL import Image
     except ImportError:
-        print("(!)  Pillow 未安装，无法自动裁切到目标比例；保留原图")
-        return width, height
+        try:
+            return _crop_png_to_aspect(path, target)
+        except Exception as exc:
+            print(f"(!)  无法自动裁切到目标比例；保留原图: {exc}")
+            return width, height
 
     with Image.open(path) as im:
         im = im.convert("RGB")
@@ -180,15 +302,17 @@ class GptImage2Generator:
         if parsed.scheme not in ("http", "https"):
             raise ValueError(f"拒绝下载非 http(s) 协议的 URL: {parsed.scheme}")
         print(f"📥 下载图片 host={parsed.netloc} path={parsed.path[:80]}")
-        resp = requests.get(url, stream=True, timeout=REQUEST_TIMEOUT_SECS)
-        resp.raise_for_status()
-        ctype = resp.headers.get("content-type", "")
-        if ctype and not ctype.startswith("image/"):
-            print(f"(!)  非 image Content-Type: {ctype}（仍尝试写盘，请人工核对）")
         MAX_BYTES = 50 * 1024 * 1024
         written = 0
-        with open(output_path, "wb") as f:
-            for chunk in resp.iter_content(chunk_size=8192):
+        req = urllib.request.Request(url, headers={"User-Agent": "gpt-image2-ppt/1.0"})
+        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_SECS) as resp, open(output_path, "wb") as f:
+            ctype = resp.headers.get("content-type", "")
+            if ctype and not ctype.startswith("image/"):
+                print(f"(!)  非 image Content-Type: {ctype}（仍尝试写盘，请人工核对）")
+            while True:
+                chunk = resp.read(8192)
+                if not chunk:
+                    break
                 written += len(chunk)
                 if written > MAX_BYTES:
                     f.close()
@@ -316,26 +440,33 @@ class GptImage2Generator:
             "Accept": "text/event-stream",
         }
         print(f"🔗 POST {url}  size={size}  stream=True")
-        resp = requests.post(
-            url, headers=headers, json=payload,
-            stream=True, timeout=REQUEST_TIMEOUT_SECS,
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers=headers,
+            method="POST",
         )
-        print(f"📥 status={resp.status_code}")
-        if resp.status_code != 200:
-            raise RuntimeError(
-                f"chat 调用失败 (status={resp.status_code}): {resp.text[:500]}"
-            )
+        try:
+            resp = urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_SECS)
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", "replace")
+            raise RuntimeError(f"chat 调用失败 (status={exc.code}): {body[:500]}") from exc
+
+        print(f"📥 status={resp.status}")
+        if resp.status != 200:
+            body = resp.read().decode("utf-8", "replace")
+            raise RuntimeError(f"chat 调用失败 (status={resp.status}): {body[:500]}")
 
         full_text = []
-        for line in resp.iter_lines(decode_unicode=True):
+        for raw_line in resp:
+            line = raw_line.decode("utf-8", "replace").strip()
             if not line or not line.startswith("data:"):
                 continue
             data_str = line[5:].strip()
             if data_str == "[DONE]":
                 break
             try:
-                import json as _json
-                chunk = _json.loads(data_str)
+                chunk = json.loads(data_str)
             except Exception:
                 continue
             choices = chunk.get("choices") or []
@@ -374,15 +505,25 @@ class GptImage2Generator:
             "Content-Type": "application/json",
         }
         print(f"🔗 POST {url}  size={size}  quality={self.quality}")
-        resp = requests.post(url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT_SECS)
-        print(f"📥 status={resp.status_code}")
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_SECS) as resp:
+                body = resp.read().decode("utf-8", "replace")
+                status = resp.status
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", "replace")
+            raise RuntimeError(f"images 调用失败 (status={exc.code}): {body[:500]}") from exc
 
-        if resp.status_code != 200:
-            raise RuntimeError(
-                f"images 调用失败 (status={resp.status_code}): {resp.text[:500]}"
-            )
+        print(f"📥 status={status}")
+        if status != 200:
+            raise RuntimeError(f"images 调用失败 (status={status}): {body[:500]}")
 
-        result = resp.json()
+        result = json.loads(body)
         data = result.get("data") or []
         if not data:
             raise RuntimeError(f"响应没有 data: {str(result)[:300]}")

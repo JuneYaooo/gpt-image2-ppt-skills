@@ -112,6 +112,7 @@ OPENAI_BASE_URL=https://api.openai.com    # 或任意 OpenAI 兼容中转站
 OPENAI_API_KEY=sk-...
 GPT_IMAGE_MODEL_NAME=gpt-image-2
 GPT_IMAGE_QUALITY=high                     # low / medium / high / auto
+GPT_IMAGE_ENDPOINT=auto                    # auto / images / chat；中转站可按模型端点能力指定
 
 # 可选：模板克隆模式的 vision 分析 backend。
 # 默认让调用本 skill 的 agent 自己看图（多模态 Claude Code / 多模态 codex 皆可）,
@@ -122,7 +123,11 @@ GPT_IMAGE_QUALITY=high                     # low / medium / high / auto
 # VISION_MODEL_NAME=gemini-3.1-pro-preview   # 或 gpt-4o / claude-3.5-sonnet 等任意多模态 SKU
 ```
 
-> **安全提示**：脚本只从 `<script_dir>/.env`、`~/.codex/skills/.../.env`、`~/.claude/skills/.../.env`、`~/skills/.../.env` 与显式 `GPT_IMAGE2_PPT_ENV` 加载凭据，**不会**向上递归读取项目目录里的 `.env`，避免误吃无关密钥。
+> **安全提示**：脚本只从显式 `GPT_IMAGE2_PPT_ENV`、脚本目录或 skill 根目录的 `.env`、`~/.codex/skills/.../.env`、`~/.claude/skills/.../.env`、`~/skills/.../.env` 加载凭据，**不会**向上递归读取项目目录里的 `.env`，避免误吃无关密钥。
+>
+> `OPENAI_BASE_URL` 可以填服务根地址或 `/v1` 地址（例如 `https://apihk.unifyllm.top` 或 `https://apihk.unifyllm.top/v1`），脚本会避免重复拼成 `/v1/v1/...`。
+>
+> 对 `apihk.unifyllm.top` 这类 New API 中转，公开 pricing 接口显示 `gpt-image-2` 属于 `image-generation` 端点；普通出图可用 `GPT_IMAGE_ENDPOINT=images` 或保持 `auto`。如果要走模板严格参考图而中转只在 chat 端点支持图像参考，可按该站模型列表切到支持 OpenAI/chat 格式的图片模型。
 
 ## 如果你就是 Codex agent（原生 image_generation 出图 — 推荐）
 

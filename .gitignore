@@ -144,6 +144,11 @@ ENV/
 env.bak/
 venv.bak/
 
+# gpt-image2-ppt generated artifacts and template caches
+outputs/
+template_renders/
+template_cache/
+
 # Spyder project settings
 .spyderproject
 .spyproject

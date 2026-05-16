@@ -1,0 +1,153 @@
+---
+name: gpt-image2-ppt
+description: Generate image-based presentation decks from a topic, outline, or PPTX template using OpenAI-compatible image models, then package PNG slides into an HTML viewer and 16:9 PPTX.
+---
+
+# GPT Image2 PPT
+
+## Description
+
+Use this skill to create visually designed slide decks. It turns a reviewed Markdown slide plan into JSON, generates one 16:9 PNG per slide through `gpt-image-2` on an OpenAI-compatible image-generation endpoint, builds a keyboard-friendly HTML viewer, and packages the images into a PowerPoint file. It also supports template clone mode when the user provides a `.pptx` template or rendered template images.
+
+This skill is Image2-only for generation. Do not replace it with platform-native image generation, HTML/CSS mockups, SVG-only slides, screenshots, downloaded image URLs, text-only PPTX files, or any non-`gpt-image-2` model. If the Image2 API key or packaged script execution is unavailable, stop and ask for configuration instead of generating a substitute deck. The phrase "pragmatic approach" means the workflow has failed; do not proceed with workaround artifacts.
+
+## When to Use
+
+- The user asks to make a PPT, presentation, slide deck, pitch deck, report deck, or visual courseware.
+- The user provides a topic or outline and wants a polished visual deck.
+- The user provides a `.pptx` template and wants new content in a similar style.
+- The user wants HTML preview plus `.pptx` output from generated slide images.
+
+## Prerequisites
+
+- Runtime environment variables:
+  - `OPENAI_API_KEY`: required for direct API generation.
+  - `OPENAI_BASE_URL`: use `https://apihk.unifyllm.top` for the configured UnifyLLM/New API relay, or another OpenAI-compatible Image2 provider. May include `/v1`.
+  - `GPT_IMAGE_MODEL_NAME`: must be `gpt-image-2` unless the user explicitly selects another true Image2-compatible endpoint.
+  - `GPT_IMAGE_ENDPOINT`: use `images` for the configured relay's `gpt-image-2` image-generation endpoint.
+  - `GPT_IMAGE_QUALITY`: optional; `low`, `medium`, `high`, or `auto`.
+- Python packages: `requests`, `python-dotenv`, `Pillow`, `python-pptx`, `jsonschema`, `pymupdf`.
+- Template rendering requires LibreOffice or pre-rendered PNG images.
+- Never place a real API key in this skill file, source files, or published marketplace content.
+
+## Workflow
+
+1. Ask the user for topic/content, page count, audience, style preference or template file, and whether to run `--slides 1` first.
+2. Create `slides_plan.md` as the source of truth. Use this heading format:
+
+   ```markdown
+   ---
+   title: Deck Title
+   ---
+
+   ## 1. [cover] Cover title
+   Subtitle: ...
+
+   ## 2. [content] Slide title
+   - Point one
+   - Point two
+
+   ## 6. [data] Key result
+   Metric: ...
+   ```
+
+3. Let the user review the Markdown plan before converting it.
+4. Convert the plan:
+
+   ```bash
+   python /home/user/skills/gpt-image2-ppt/scripts/md_to_plan.py slides_plan.md -o slides_plan.json
+   ```
+
+5. Confirm the Image2 runtime configuration:
+
+   ```bash
+   test -n "$OPENAI_API_KEY"
+   export OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://apihk.unifyllm.top}"
+   export GPT_IMAGE_MODEL_NAME="gpt-image-2"
+   export GPT_IMAGE_ENDPOINT="images"
+   ```
+
+   If `OPENAI_API_KEY` is empty, stop. Do not use another generator.
+
+6. For a built-in style deck, choose one style file from `/home/user/skills/gpt-image2-ppt/references/`:
+
+   - `gradient-glass.md`
+   - `clean-tech-blue.md`
+   - `vector-illustration.md`
+   - `editorial-mono.md`
+   - `dark-aurora.md`
+   - `risograph.md`
+   - `japanese-wabi.md`
+   - `swiss-grid.md`
+   - `hand-sketch.md`
+   - `y2k-chrome.md`
+
+7. Run a one-slide smoke test when appropriate:
+
+   ```bash
+   python /home/user/skills/gpt-image2-ppt/scripts/generate_ppt.py \
+     --plan slides_plan.json \
+     --style /home/user/skills/gpt-image2-ppt/references/clean-tech-blue.md \
+     --slides 1 \
+     --concurrency 1
+   ```
+
+8. Run the full deck:
+
+   ```bash
+   python /home/user/skills/gpt-image2-ppt/scripts/generate_ppt.py \
+     --plan slides_plan.json \
+     --style /home/user/skills/gpt-image2-ppt/references/clean-tech-blue.md
+   ```
+
+9. For template clone mode, add template flags:
+
+   ```bash
+   python /home/user/skills/gpt-image2-ppt/scripts/generate_ppt.py \
+     --plan slides_plan.json \
+     --template-pptx ./template.pptx \
+     --template-strict \
+     --slides 1
+   ```
+
+10. Inspect `prompts.json` metadata or command output and report `model=gpt-image-2` plus the endpoint used. If the model is not `gpt-image-2`, treat the run as failed.
+11. Report the generated output directory, `index.html`, `.pptx`, and any failed slides.
+
+## Output Format
+
+After generation, respond with:
+
+```text
+Style/template: <style id or template filename>
+Slides: <generated>/<requested>
+Output directory: <path>
+HTML viewer: <path>/index.html
+PPTX: <path>/<deck>.pptx
+Warnings: <API fallback, text-legibility note, layout-reuse note, or none>
+Model: gpt-image-2
+Endpoint: images
+```
+
+## Examples
+
+### Built-in Style
+
+User: "帮我做一份 6 页 AI 客服产品发布 PPT，偏科技蓝。"
+
+Action:
+
+1. Draft `slides_plan.md`.
+2. Convert with `md_to_plan.py`.
+3. Use `/home/user/skills/gpt-image2-ppt/references/clean-tech-blue.md`.
+4. Run `--slides 1`, then full generation after approval.
+
+### Template Clone
+
+User: "按这个公司模板，做一份 8 页投融资路演。"
+
+Action:
+
+1. Render or locate template PNGs.
+2. Draft a plan with suitable `layout=` hints when needed.
+3. Run `generate_ppt.py --template-pptx ./company-template.pptx --template-strict --slides 1`.
+4. Inspect layout reuse warnings before full generation.
