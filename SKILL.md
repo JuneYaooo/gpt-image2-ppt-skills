@@ -48,6 +48,36 @@ description: Generate visually striking PPT slides via OpenAI's gpt-image-2 -- u
 
 > 风格选择原则：先根据内容场景在 `styles/` 里选择最贴近的一套。技术类可优先看 `dark-aurora` / `gradient-glass` / `data-science-consulting`，商务类可优先看 `clean-tech-blue` / `editorial-mono` / `eco-green-business-plan` / `investment-company-business-plan`，文化生活类可优先看 `japanese-wabi` / `vector-illustration` / `culinary-innovation` / `flowery`，学术类可优先看 `swiss-grid` / `geometric-duotone-thesis` / `final-year-project-thesis-defense`，工作坊与培训类可优先看 `hand-sketch` / `mind-maps-workshop-professional` / `mindfulness-in-the-classroom-breathing-techniques`。
 
+## 场景 recipes（可选起步模板）
+
+`examples/` 不是新的 skill，也不是运行时必须输入；它是当前 skill 的场景起步模板库，用来在用户只给出模糊需求时，帮助 agent 更快写出第一版 `slides_plan.md`。
+
+触发规则：
+
+- 用户已经提供完整大纲 / 完整 `slides_plan.md` / 完整 `slides_plan.json` 时，不要套 recipe，直接按用户内容走生成流程。
+- 用户只说“做一份产品发布 PPT / 融资路演 / 周报 / 课程课件 / 论文答辩 / 读书分享”等常见场景，且没有给清晰页结构时，先查看 `examples/` 是否有匹配 recipe。
+- recipe 只作为结构参考：读取 `examples/<id>/recipe.md` 了解场景、推荐风格和注意事项，再参考 `examples/<id>/slides_plan.md` 的页序结构，改写成用户自己的主题与内容。
+- 不要把示例里的虚构产品、公司、项目、数据直接当成用户成品；必须替换为用户提供的信息，或明确标注为占位内容并等待用户确认。
+- 如果用户给了真实图片、logo、截图、论文图表或产品 UI，仍按“外部真实图片贴入”规则处理；recipe 只负责内容结构，不替代素材保真流程。
+
+当前内置 recipes：
+
+| 用户场景 | recipe 目录 | 推荐风格 |
+| --- | --- | --- |
+| 产品发布、新功能发布、AI 产品介绍 | `examples/product-launch/` | `gradient-glass` |
+| 融资路演、商业计划书、投资人汇报 | `examples/investor-pitch/` | `clean-tech-blue` |
+| 项目周报、月报、例会同步 | `examples/weekly-report/` | `meeting-agenda` |
+| 课程课件、培训、知识科普 | `examples/courseware/` | `vector-illustration` |
+| 论文答辩、毕设答辩、结题展示 | `examples/thesis-defense/` | `final-year-project-thesis-defense` |
+| 读书分享、文化访谈、观点分享 | `examples/book-sharing/` | `editorial-mono` |
+
+使用方式：
+
+1. 判断用户需求是否命中某个 recipe。
+2. 读取对应 `recipe.md` 和 `slides_plan.md`。
+3. 基于用户主题改写一份新的 `slides_plan.md`，不要直接改 recipe 源文件。
+4. 与用户确认页数、每页标题和关键内容。
+5. 用户确认后再执行 `md_to_plan.py` 转 json，并继续下面的指定风格或模板克隆流程。
 ### 内置风格的 layout bank sidecar（推荐新格式）
 
 内置风格采用“MD 给人看，JSON 给机器用”的双文件结构：
@@ -311,8 +341,8 @@ GPT_IMAGE_BACKEND=codex              # 不想每次敲 --backend 就设这个
 
 **先 md 后 json**：md 给人看、方便 diff / review / 改文案；json 由 md 派生，喂给 `generate_ppt.py`，标为 generated，不手改。
 
-1. 用户给一份大纲 / 已有的 slides_plan.json
-2. Agent 按下面 md 规范写一份 `slides_plan.md`，与用户确认文案：
+1. 用户给一份大纲 / 已有的 slides_plan.json；如果用户只给常见场景和主题，先按上方“场景 recipes”选择一个 `examples/<id>/` 作为结构参考
+2. Agent 按下面 md 规范写一份新的 `slides_plan.md`，与用户确认文案：
    ````markdown
    ---
    title: MediWise Health Suite 商业计划书
@@ -337,7 +367,7 @@ GPT_IMAGE_BACKEND=codex              # 不想每次敲 --backend 就设这个
    ```bash
    python3 scripts/md_to_plan.py slides_plan.md -o slides_plan.json
    ```
-4. 选风格：从 `styles/` 里挑一个，对应 `styles/<id>.md`；需要视觉预览时先看 `docs/distilled-styles.md`
+4. 选风格：从 `styles/` 里挑一个，对应 `styles/<id>.md`；如果使用了 recipe，优先采用 `recipe.md` / frontmatter 里的 `recommended_style`，需要视觉预览时先看 `docs/distilled-styles.md`
 5. **构造 slide_spec**（Agent 步骤）：读 `styles/<id>.md` 的视觉规范，为 `slides_plan.json` 每页构造 `slide_spec`（每个元素的 type、content、position、style），写入每页的 `slide_spec` 字段。格式见下方"指哪改哪"章节
 6. 调脚本：
    ```bash
@@ -637,6 +667,10 @@ gpt-image2-ppt-skills/
 |   |---- vector-illustration.md      japanese-wabi.md
 |   |---- editorial-mono.md           swiss-grid.md
 |   |---- hand-sketch.md              y2k-chrome.md
+|---- examples/               # 场景 recipes：常见 PPT 的 slides_plan.md 起步模板
+|   |---- product-launch/             investor-pitch/
+|   |---- weekly-report/              courseware/
+|   |---- thesis-defense/             book-sharing/
 |---- docs/README.en.md       # 英文 README
 |---- install_as_skill.sh     # 一键安装到 agent skills 目录
 |---- requirements.txt        # requests + python-dotenv + python-pptx + jsonschema + pymupdf
