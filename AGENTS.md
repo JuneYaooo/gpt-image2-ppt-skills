@@ -6,6 +6,7 @@
 
 - **主入口 CLI（API 直连 / 非 Codex 原生出图路径）**：`python3 scripts/generate_ppt.py --plan slides_plan.json --style styles/<id>.md`
 - **内容源稿**：先写 `slides_plan.md`（人审阅），再 `python3 scripts/md_to_plan.py slides_plan.md -o slides_plan.json`；json 标为 derived，不手改
+- **场景起步模板**：用户只有模糊主题、没有完整大纲时，先看 `SKILL.md` 的“场景 recipes”规则，并参考 `examples/` 写新的 `slides_plan.md`
 - **十种内置风格**：见 `styles/` 目录 + `SKILL.md` 顶部表格
 - **模板克隆**：`--template-pptx path/to/xxx.pptx --template-strict`，vision 分析 + 缓存细节在 `SKILL.md` 的"模板克隆模式"一节；**如果你自己就是多模态 agent**(多模态 Claude / GPT / 原生 Codex 等)，可以直接 `Read` `template_renders/<stem>/page-*.png` 自己抽风格写 `template_profile.json`，用 `--template-profile` 传入，不用外挂 `VISION_*`
 - **冒烟策略**：API 直连 / 非 Codex 原生路径先 `--slides 1` 出封面；如果你自己就是带原生出图能力的 Codex，则直接用当前会话的 image_generation tool 生成第 1 页 PNG 做冒烟，不要经 `--backend codex`
