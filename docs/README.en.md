@@ -44,6 +44,7 @@ The project also includes dedicated optimization for editing image-based PPTs. Y
 ## ✨ What it does
 
 - 🎨 **10 curated styles + an expanded style library** — built-ins include Spatial Glass / Tech Blue / Editorial Mono / Dark Aurora / Risograph / Wabi / Swiss Grid / Hand Sketch / Y2K Chrome / Vector Illustration; on 2026-05-26, 22 additional high-quality styles were selected from 500+ publicly available PPT templates
+- 🧭 **Prompt Recipes** — `examples/` provides starter `slides_plan.md` templates for common scenarios such as product launches, investor pitches, weekly reports, courseware, thesis defenses, and book talks
 - 🪄 **Template-clone mode** — drop in any `.pptx`; the agent follows its layout, palette, and illustration language, then swaps in your new content
 - 🎯 **Precise natural-language edits** — say "change slide 3's subtitle", "remove the footer", or "replace these three metrics"; the agent regenerates only the target slide through image-to-image editing while trying to preserve the original style and layout
 - 🎮 **Dual output** — high-res PNG per slide + 16:9 `.pptx` ready to use
@@ -61,6 +62,8 @@ The project also includes dedicated optimization for editing image-based PPTs. Y
 | Update metric cards and key numbers | Good | Works, but every number must be checked before delivery. |
 | Modify only one slide in a multi-slide deck | Good | The target slide is regenerated; other slides are left alone. |
 | Dense tables, financial reports, legal long copy | Weak | Small text and numbers need strict human review. |
+
+If the user only has a rough topic and no complete outline yet, the agent can first consult [`examples/`](../examples/) to draft a scenario-appropriate `slides_plan.md`, ask for confirmation, then convert it to `slides_plan.json` and continue with generation.
 
 ## 🎨 The 10 built-in styles
 
