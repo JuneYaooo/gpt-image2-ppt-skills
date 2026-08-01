@@ -2764,10 +2764,13 @@ def generate_slide(
     backend:
       "openai" (default) -- direct /v1/images or /v1/chat calls, needs OPENAI_API_KEY
       "codex"            -- shell out to `codex exec`, reuses codex CLI auth
+      "atlascloud"        -- Atlas Cloud asynchronous media API, needs ATLASCLOUD_API_KEY
     """
     sys.path.insert(0, str(SCRIPT_DIR))
     if backend == "codex":
         from codex_backend import CodexImageBackend as _Backend
+    elif backend == "atlascloud":
+        from atlascloud_backend import AtlasCloudImageBackend as _Backend
     else:
         from image_generator import GptImage2Generator as _Backend
 
@@ -3397,10 +3400,11 @@ Environment variables:
     )
     parser.add_argument(
         "--backend",
-        choices=["openai", "codex"],
+        choices=["openai", "codex", "atlascloud"],
         default=os.getenv("GPT_IMAGE_BACKEND", "openai"),
         help="图片生成后端：openai=直调 OpenAI API（需 OPENAI_API_KEY，默认）；"
-             "codex=启动本地 codex exec 子进程（非当前 Codex 原生 tool；更慢，仅作备用）",
+             "codex=启动本地 codex exec 子进程；"
+             "atlascloud=Atlas Cloud 异步媒体 API（需 ATLASCLOUD_API_KEY）",
     )
 
     # Edit / rollback / ingest commands
