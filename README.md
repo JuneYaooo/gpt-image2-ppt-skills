@@ -270,7 +270,7 @@ VISION_MODEL_NAME=gemini-3.1-pro-preview   # 或 gpt-4o / claude-3.5-sonnet 等�
 
 ## ⭐ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=JuneYaooo/gpt-image2-ppt-skills&type=Date)](https://star-history.com/#JuneYaooo/gpt-image2-ppt-skills&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=JuneYaooo/gpt-image2-ppt-skills&type=Date)](https://star-history.dera.page/#JuneYaooo/gpt-image2-ppt-skills&Date)
 
 ---
 
