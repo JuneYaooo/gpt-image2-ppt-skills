@@ -263,7 +263,7 @@ Apart from the early NanoBanana-PPT-Skills upstream relationship and the html-pp
 
 ## ⭐ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=JuneYaooo/gpt-image2-ppt-skills&type=Date)](https://star-history.com/#JuneYaooo/gpt-image2-ppt-skills&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=JuneYaooo/gpt-image2-ppt-skills&type=Date)](https://star-history.dera.page/#JuneYaooo/gpt-image2-ppt-skills&Date)
 
 ---
 
